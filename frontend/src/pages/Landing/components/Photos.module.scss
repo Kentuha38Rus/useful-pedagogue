@@ -1,0 +1,243 @@
+@import '../../../assets/styles/variables';
+
+.photos {
+  padding: 5rem 8%;
+  background: #f8f9fc;
+  text-align: center;
+
+  h2 {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    color: #1a1a2e;
+  }
+
+  .flipWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .flipBook {
+    :global(.flip-book) {
+      box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    :global(.page) {
+      position: relative;
+      background: #fff;
+      overflow: hidden;
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 100%;
+      height: 100%;
+    }
+
+    .pageImageWrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f0f4ff;
+      cursor: default; // для обложек – без указателя, если не кликабельно
+
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      // Оверлей для обложек (текст поверх изображения)
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(2px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        text-align: center;
+        color: #fff;
+        pointer-events: none; // чтобы не мешать клику (если он есть)
+
+        h3 {
+          font-size: 1.8rem;
+          margin-bottom: 0.5rem;
+          text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        p {
+          font-size: 1.2rem;
+          opacity: 0.9;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+      }
+    }
+
+    // Для страниц с фото – кликабельно
+    .page:not(:first-child):not(:last-child) .pageImageWrapper {
+      cursor: pointer;
+    }
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+
+    .controlBtn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: none;
+      background: $primary;
+      color: #fff;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba($primary, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        background: darken($primary, 10%);
+        transform: scale(1.05);
+        box-shadow: 0 6px 15px rgba($primary, 0.4);
+      }
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+
+    .pageIndicator {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      min-width: 60px;
+      text-align: center;
+    }
+  }
+
+  .modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .modalContent {
+    position: relative;
+    max-width: 95vw;
+    max-height: 95vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      max-width: 100%;
+      max-height: 95vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .modalClose {
+      position: absolute;
+      top: -40px;
+      right: -40px;
+      background: rgba(255,255,255,0.2);
+      border: none;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      font-size: 32px;
+      line-height: 1;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        background: rgba(255,255,255,0.4);
+      }
+    }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @media (max-width: 768px) {
+    padding: 3rem 5%;
+    h2 { font-size: 2rem; }
+    .controls .controlBtn {
+      width: 40px;
+      height: 40px;
+      font-size: 22px;
+    }
+    .modalContent .modalClose {
+      top: -30px;
+      right: -10px;
+      width: 40px;
+      height: 40px;
+      font-size: 26px;
+    }
+    .flipBook .pageImageWrapper .overlay h3 {
+      font-size: 1.4rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .controls .controlBtn {
+      width: 36px;
+      height: 36px;
+      font-size: 18px;
+    }
+    .controls {
+      gap: 1rem;
+    }
+    .pageIndicator {
+      font-size: 0.9rem;
+      min-width: 50px;
+    }
+    .modalContent .modalClose {
+      top: -25px;
+      right: -5px;
+      width: 36px;
+      height: 36px;
+      font-size: 22px;
+    }
+    .flipBook .pageImageWrapper .overlay h3 {
+      font-size: 1.2rem;
+    }
+    .flipBook .pageImageWrapper .overlay p {
+      font-size: 1rem;
+    }
+  }
+}

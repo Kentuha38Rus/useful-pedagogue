@@ -1,0 +1,55 @@
+@import '../../assets/styles/variables';
+
+.calendar {
+  background: #fff;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+  margin: $spacing-md;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: $spacing-md;
+  button {
+    font-size: 24px;
+    padding: 0 12px;
+    background: none;
+    border: none;
+    color: $primary;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  .weekday {
+    text-align: center;
+    font-weight: 600;
+    color: $text-light;
+    font-size: $font-size-small;
+  }
+  .day {
+    text-align: center;
+    padding: 8px 0;
+    border-radius: 50%;
+    position: relative;
+    &:hover {
+      background: $secondary;
+      color: #fff;
+    }
+    .dot {
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: $primary;
+    }
+  }
+}

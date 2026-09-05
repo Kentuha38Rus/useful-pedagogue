@@ -1,0 +1,36 @@
+@import '../../assets/styles/variables';
+
+.inputGroup {
+  margin-bottom: $spacing-md;
+}
+
+.label {
+  display: block;
+  margin-bottom: $spacing-xs;
+  font-weight: 500;
+  color: $text-primary;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid $border;
+  border-radius: $radius;
+  background: #fff;
+  font-size: $font-size-base;
+  transition: border 0.2s;
+  &:focus {
+    outline: none;
+    border-color: $primary;
+  }
+  &.error {
+    border-color: #c0392b;
+  }
+}
+
+.errorMsg {
+  display: block;
+  margin-top: $spacing-xs;
+  color: #c0392b;
+  font-size: $font-size-small;
+}

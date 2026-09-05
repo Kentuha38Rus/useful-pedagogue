@@ -1,0 +1,139 @@
+@import '../../../assets/styles/variables';
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 85vh;
+  padding: 0 8%;
+  background: #fafbfc;
+  flex-wrap: wrap;
+
+  .content {
+    max-width: 600px;
+    h1 {
+      font-size: 3.8rem;
+      font-weight: 800;
+      line-height: 1.2;
+      color: #1a1a2e;
+      margin-bottom: 1.5rem;
+    }
+    p {
+      font-size: 1.2rem;
+      color: #4a4a6a;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+    .buttons {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 2.5rem;
+      a {
+        text-decoration: none;
+      }
+      .diagnosticLink {
+  display: inline-block;
+        button {
+          background: transparent;
+          border: 2px solid $primary;
+          color: $primary;
+          &:hover {
+            background: $primary;
+            color: #fff;
+          }
+        }
+      }
+    }
+    .stats {
+      margin-top: 0;
+      display: flex;
+      gap: 2rem;
+      font-weight: 500;
+      color: #2d2d44;
+      flex-wrap: wrap;
+      span {
+        font-size: 1rem;
+        background: rgba(255,255,255,0.6);
+        padding: 0.4rem 1.2rem;
+        border-radius: 30px;
+        backdrop-filter: blur(4px);
+      }
+    }
+  }
+
+  .image {
+    flex: 0 0 400px;
+    max-width: 100%;
+    .heroVideo {
+      width: 100%;
+      max-width: 400px;
+      height: auto;
+      animation: float 3s ease-in-out infinite;
+      border-radius: 20px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    }
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0); }
+  }
+
+  @media (max-width: 1024px) {
+    .content h1 { font-size: 3.2rem; }
+    .image { flex-basis: 350px; }
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    text-align: center;
+    padding: 4rem 5%;
+    min-height: auto;
+    .content {
+      max-width: 100%;
+      h1 { font-size: 2.8rem; }
+      p { font-size: 1.1rem; }
+      .buttons {
+        flex-direction: column;
+        align-items: center;
+        a {
+          width: 100%;
+          button {
+            width: 100%;
+          }
+        }
+      }
+      .stats {
+        gap: 1rem;
+        justify-content: center;
+        span {
+          font-size: 0.9rem;
+          padding: 0.3rem 1rem;
+        }
+      }
+    }
+    .image {
+      flex-basis: auto;
+      margin-top: 2rem;
+      .heroVideo {
+        max-width: 280px;
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .content h1 { font-size: 2.2rem; }
+    .content p { font-size: 1rem; }
+    .image .heroVideo { max-width: 220px; }
+  }
+}
+
+.diagnosticBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-block;
+}

@@ -1,0 +1,56 @@
+{
+  "version": "v1",
+  "baseUrl": "/api/v1",
+  "endpoints": {
+    "auth": {
+      "register": { "method": "POST", "path": "/auth/register", "body": { "email": "string", "password": "string", "fullName": "string", "role": "parent|teacher|admin" } },
+      "login": { "method": "POST", "path": "/auth/login", "body": { "email": "string", "password": "string" } },
+      "refresh": { "method": "POST", "path": "/auth/refresh", "body": { "refreshToken": "string" } },
+      "logout": { "method": "POST", "path": "/auth/logout" }
+    },
+    "users": {
+      "getMe": { "method": "GET", "path": "/users/me" },
+      "updateMe": { "method": "PATCH", "path": "/users/me" },
+      "getAllTeachers": { "method": "GET", "path": "/users/teachers" } 
+    },
+    "children": {
+      "create": { "method": "POST", "path": "/children" },
+      "getAll": { "method": "GET", "path": "/children" },
+      "getOne": { "method": "GET", "path": "/children/:id" },
+      "update": { "method": "PATCH", "path": "/children/:id" },
+      "delete": { "method": "DELETE", "path": "/children/:id" }
+    },
+    "courses": {
+      "getAll": { "method": "GET", "path": "/courses" },
+      "getOne": { "method": "GET", "path": "/courses/:id" },
+      "create": { "method": "POST", "path": "/courses" }, 
+      "update": { "method": "PATCH", "path": "/courses/:id" }, 
+      "delete": { "method": "DELETE", "path": "/courses/:id" } 
+    },
+    "groups": {
+      "getAll": { "method": "GET", "path": "/groups" },
+      "getOne": { "method": "GET", "path": "/groups/:id" },
+      "create": { "method": "POST", "path": "/groups" }, 
+      "update": { "method": "PATCH", "path": "/groups/:id" }, 
+      "delete": { "method": "DELETE", "path": "/groups/:id" } 
+    },
+    "schedule": {
+      "getMySchedule": { "method": "GET", "path": "/schedule/me" },
+      "getGroupSchedule": { "method": "GET", "path": "/schedule/group/:groupId" },
+      "createLesson": { "method": "POST", "path": "/schedule/lessons" }, 
+      "updateLesson": { "method": "PATCH", "path": "/schedule/lessons/:id" }, 
+      "markAttendance": { "method": "PATCH", "path": "/schedule/lessons/:id/attendance" } 
+    },
+    "messages": {
+      "getChats": { "method": "GET", "path": "/messages/chats" }, 
+      "getMessages": { "method": "GET", "path": "/messages/chat/:chatId" },
+      "send": { "method": "POST", "path": "/messages" },
+      "markRead": { "method": "PATCH", "path": "/messages/:id/read" }
+    },
+    "notifications": {
+      "getAll": { "method": "GET", "path": "/notifications" },
+      "markRead": { "method": "PATCH", "path": "/notifications/:id" },
+      "sendPush": { "method": "POST", "path": "/notifications/push" } 
+    }
+  }
+}

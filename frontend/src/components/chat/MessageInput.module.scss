@@ -1,0 +1,27 @@
+@import '../../assets/styles/variables';
+
+.inputForm {
+  display: flex;
+  padding: $spacing-sm $spacing-md;
+  background: #fff;
+  border-top: 1px solid $border;
+  align-items: center;
+}
+
+.input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid $border;
+  border-radius: $radius;
+  font-size: $font-size-base;
+  margin-right: $spacing-sm;
+  &:focus {
+    outline: none;
+    border-color: $primary;
+  }
+}
+
+.sendBtn {
+  padding: 10px 16px;
+  border-radius: $radius;
+}

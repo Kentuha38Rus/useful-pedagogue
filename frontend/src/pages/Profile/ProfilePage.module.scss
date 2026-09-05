@@ -1,0 +1,106 @@
+@import '../../assets/styles/variables';
+
+.profilePage {
+  padding: $spacing-md;
+}
+
+.userCard {
+  text-align: center;
+  padding: $spacing-xl;
+  h2 {
+    font-size: $font-size-large;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-large-mobile;
+    }
+  }
+  p {
+    font-size: $font-size-base;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-base-mobile;
+    }
+  }
+}
+
+.childrenCard {
+  margin-top: $spacing-md;
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-sm;
+    h3 {
+      font-size: $font-size-large;
+      @media (max-width: $breakpoint-mobile) {
+        font-size: $font-size-large-mobile;
+      }
+    }
+    button {
+      font-size: $font-size-small;
+      padding: 6px 12px;
+      @media (max-width: $breakpoint-mobile) {
+        font-size: $font-size-small - 2px;
+        padding: 4px 10px;
+      }
+    }
+  }
+  .childItem {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0;
+    border-bottom: 1px solid $border;
+    @media (min-width: $breakpoint-mobile + 1) {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .childInfo {
+      flex: 1;
+      .childName {
+        font-weight: 600;
+        font-size: $font-size-base;
+        @media (max-width: $breakpoint-mobile) {
+          font-size: $font-size-base-mobile;
+        }
+      }
+      .groupInfo {
+        margin-top: 4px;
+        p {
+          margin: 2px 0;
+          font-size: $font-size-small;
+          @media (max-width: $breakpoint-mobile) {
+            font-size: $font-size-small - 1px;
+          }
+        }
+        .schedule ul {
+          padding-left: 20px;
+          li {
+            font-size: $font-size-small;
+            @media (max-width: $breakpoint-mobile) {
+              font-size: $font-size-small - 1px;
+            }
+          }
+        }
+        .noSchedule, .noGroup {
+          color: #999;
+          font-style: italic;
+        }
+      }
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      @media (min-width: $breakpoint-mobile + 1) {
+        margin-top: 0;
+      }
+      button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.2rem;
+        color: #888;
+        &:hover { color: #333; }
+      }
+    }
+  }
+}

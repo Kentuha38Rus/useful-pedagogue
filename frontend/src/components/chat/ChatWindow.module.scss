@@ -1,0 +1,50 @@
+@import '../../assets/styles/variables';
+
+.chatWindow {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+  background: $background;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-md;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  max-width: 80%;
+  margin-bottom: $spacing-sm;
+  display: flex;
+  flex-direction: column;
+  &.own {
+    align-self: flex-end;
+    .bubble {
+      background: $primary;
+      color: #fff;
+      border-radius: $radius $radius 0 $radius;
+    }
+  }
+  &.other {
+    align-self: flex-start;
+    .bubble {
+      background: #fff;
+      color: $text-primary;
+      border-radius: $radius $radius $radius 0;
+    }
+  }
+  .bubble {
+    padding: 10px 14px;
+    font-size: $font-size-base;
+    word-wrap: break-word;
+  }
+  .time {
+    font-size: $font-size-small;
+    color: $text-light;
+    margin-top: 2px;
+    padding: 0 4px;
+  }
+}

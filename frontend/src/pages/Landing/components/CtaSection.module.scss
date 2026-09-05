@@ -1,0 +1,61 @@
+@import '../../../assets/styles/variables';
+
+.cta {
+  padding: 4rem 8%;
+  background: linear-gradient(135deg, $primary 0%, #8a9b6f 100%);
+  color: #fff;
+  text-align: center;
+
+  .content {
+    max-width: 700px;
+    margin: 0 auto;
+    h2 {
+      font-size: 2.8rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+    p {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+    a {
+      display: inline-block;
+      text-decoration: none;
+      button {
+        background: #fff;
+        color: $primary;
+        &:hover {
+          background: rgba(255,255,255,0.9);
+        }
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 3rem 5%;
+    .content {
+      h2 { font-size: 2.2rem; }
+      p { font-size: 1rem; }
+      a {
+        width: 100%;
+        button {
+          width: 100%;
+        }
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .content h2 { font-size: 1.8rem; }
+  }
+}
+
+.ctaBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-block;
+  width: auto;
+}

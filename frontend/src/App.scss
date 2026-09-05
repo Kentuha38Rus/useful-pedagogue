@@ -1,0 +1,28 @@
+@import './assets/styles/variables';
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: $background;
+  color: $text-primary;
+  font-family: $font-family;
+}
+
+.app-main {
+  flex: 1;
+  padding-bottom: 7px;   /* высота BottomNav + отступ */
+  padding-top: 1px;      /* высота Header + отступ */
+  @media (max-width: $breakpoint-mobile) {
+    padding-bottom: 60px;
+    padding-top: 56px;
+  }
+}
+
+// Дополнительная адаптация для очень маленьких экранов
+@media (max-width: $breakpoint-small-mobile) {
+  .app-main {
+    padding-bottom: 56px;
+    padding-top: 1px;
+  }
+}

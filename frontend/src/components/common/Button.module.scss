@@ -1,0 +1,41 @@
+@import '../../assets/styles/variables';
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border-radius: $radius;
+  font-size: $font-size-base;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.1s;
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.primary {
+  background-color: $primary;
+  color: #fff;
+  &:hover {
+    background-color: darken($primary, 10%);
+  }
+}
+
+.secondary {
+  background-color: $secondary;
+  color: #fff;
+  &:hover {
+    background-color: darken($secondary, 10%);
+  }
+}
+
+.outline {
+  background: transparent;
+  border: 2px solid $primary;
+  color: $primary;
+  &:hover {
+    background: $primary;
+    color: #fff;
+  }
+}

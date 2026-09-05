@@ -1,0 +1,63 @@
+@import '../../assets/styles/variables';
+
+.schedulePage {
+  padding: $spacing-md;
+  h1 {
+    font-size: $font-size-large;
+    margin-bottom: $spacing-md;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-large-mobile;
+    }
+  }
+  p {
+    font-size: $font-size-base;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-base-mobile;
+    }
+  }
+}
+
+.lessonList {
+  margin-top: $spacing-lg;
+}
+
+.dateGroup {
+  margin-bottom: $spacing-lg;
+  .dateHeader {
+    font-size: $font-size-large;
+    margin-bottom: $spacing-sm;
+    color: $primary;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-large-mobile;
+    }
+  }
+}
+
+.lessonCard {
+  display: flex;
+  flex-direction: column;
+  padding: $spacing-md;
+  @media (min-width: $breakpoint-mobile + 1) {
+    flex-direction: row;
+    align-items: center;
+    gap: $spacing-md;
+  }
+  .lessonTime {
+    font-weight: 600;
+    color: $primary;
+    font-size: $font-size-base;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-base-mobile;
+    }
+  }
+  .lessonInfo {
+    flex: 1;
+    p {
+      margin: 2px 0;
+      font-size: $font-size-base;
+      @media (max-width: $breakpoint-mobile) {
+        font-size: $font-size-base-mobile;
+      }
+    }
+  }
+}

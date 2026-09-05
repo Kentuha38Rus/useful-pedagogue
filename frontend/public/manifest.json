@@ -1,0 +1,23 @@
+{
+  "name": "Полезный педагог",
+  "short_name": "Педагог",
+  "description": "Экосистема для детского центра",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F0E1",
+  "theme_color": "#6B6B3D",
+  "icons": [
+    {
+      "src": "/icons/turtle-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/turtle-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

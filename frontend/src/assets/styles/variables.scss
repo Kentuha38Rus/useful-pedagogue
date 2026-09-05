@@ -1,0 +1,36 @@
+// Цвета бренда
+$primary: #6B6B3D;
+$secondary: #A3B18A;
+$background: #F5F0E1;
+$text-primary: #333333;
+$text-light: #6B6B3D;
+$border: #D4CFC0;
+
+// Шрифты
+$font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif;
+$font-size-base: 18px;
+$font-size-large: 22px;
+$font-size-small: 14px;
+
+// Адаптивные шрифты (для мобильных)
+$font-size-base-mobile: 16px;
+$font-size-large-mobile: 20px;
+$font-size-h1-mobile: 2.2rem;
+$font-size-h2-mobile: 1.8rem;
+$font-size-h3-mobile: 1.4rem;
+
+// Отступы
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$spacing-lg: 24px;
+$spacing-xl: 32px;
+
+// Радиусы
+$radius: 12px;
+$radius-lg: 20px;
+
+// Брейкпоинты
+$breakpoint-mobile: 768px;
+$breakpoint-tablet: 1024px;
+$breakpoint-small-mobile: 480px;

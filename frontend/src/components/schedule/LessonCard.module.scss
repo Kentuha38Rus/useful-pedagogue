@@ -1,0 +1,30 @@
+@import '../../assets/styles/variables';
+
+.lessonCard {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  .time {
+    font-weight: 600;
+    color: $primary;
+    min-width: 60px;
+  }
+  .info {
+    flex: 1;
+    margin: 0 12px;
+    .title {
+      font-weight: 600;
+    }
+    .teacher {
+      font-size: $font-size-small;
+      color: $text-light;
+    }
+  }
+  .group {
+    background: $secondary;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: $radius;
+    font-size: $font-size-small;
+  }
+}

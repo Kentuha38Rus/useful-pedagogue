@@ -1,0 +1,51 @@
+@import '../../assets/styles/variables';
+
+.authPage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f5f7fa;
+  padding: 20px;
+}
+
+.authCard {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 30px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+
+  h1, h2 {
+    text-align: center;
+    margin-bottom: 24px;
+    color: #1a1a2e;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .error {
+    color: #e74c3c;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.95rem;
+    a {
+      color: #0077b6;
+      text-decoration: none;
+      font-weight: 600;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}

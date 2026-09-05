@@ -1,0 +1,32 @@
+# Зависимости
+node_modules/
+*/node_modules/
+
+# Переменные окружения
+.env
+.env.*
+*.env
+
+# Логи
+*.log
+*.log.*
+
+# Сборки
+dist/
+build/
+.cache/
+*/dist/
+*/build/
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Файлы редакторов
+.vscode/
+.idea/
+
+# ерунда
+structure.txt
+*.txt
+desktop.ini

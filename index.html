@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Carousel Slider</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet" />
+    <style>
+        /* ----- CSS-переменные (вместо Stylus) ----- */
+        :root {
+            --page-margin-y: 20px;
+            --page-margin-x: 20px;
+            --width: calc(50vw - 20px);
+            --half-width: calc(50vw - 10px);
+            --neg-half-width: calc(-25vw + 10px);
+            --height: calc(100vh - 40px);
+            --half-height: calc(50vh - 20px);
+            --neg-half-height: calc(-50vh + 20px);
+            --transition-dur: 1s;
+        }
+
+        /* ----- общие сбросы ----- */
+        html, body {
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        body {
+            background: #fff;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            overflow: hidden;
+        }
+        .js-transitions-disabled * {
+            transition: none !important;
+        }
+
+        /* ----- карусель ----- */
+        .carousel {
+            position: relative;
+            height: 100%;
+            overflow: hidden;
+            perspective: 50vw;
+            perspective-origin: 50% 50%;
+        }
+
+        /* ----- элементы управления ----- */
+        .carousel__control {
+            position: absolute;
+            height: 160px;
+            width: 40px;
+            background: #fff;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            margin: auto;
+            z-index: 1;
+        }
+        .carousel__control a {
+            position: relative;
+            display: block;
+            width: 100%;
+            padding-top: 75%;
+            box-sizing: border-box;
+        }
+        .carousel__control a:hover:before {
+            background-color: rgba(0,0,0,0.4);
+        }
+        .carousel__control a.active:before,
+        .carousel__control a.active:hover:before {
+            background-color: rgba(0,0,0,0.6);
+        }
+        .carousel__control a:first-child {
+            margin-top: 15px;
+        }
+        .carousel__control a:before {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            margin: auto;
+            border-radius: 50%;
+            padding-top: 25%;
+            width: 25%;
+            background: rgba(0,0,0,0.2);
+            content: '';
+            display: block;
+            margin-top: -12.5%;
+        }
+
+        /* ----- сцена ----- */
+        .carousel__stage {
+            position: absolute;
+            top: var(--page-margin-y);
+            bottom: var(--page-margin-y);
+            left: var(--page-margin-x);
+            right: var(--page-margin-x);
+            margin: auto;
+            transform-style: preserve-3d;
+            transform: translateZ(var(--neg-half-height));
+        }
+
+        /* ----- спиннеры ----- */
+        .spinner {
+            position: absolute;
+            width: var(--width);
+            height: var(--height);
+            top: 0;
+            left: 0;
+            right: auto;
+            bottom: 0;
+            margin: auto;
+            transform-style: preserve-3d;
+            transition: transform var(--transition-dur);
+            backface-visibility: hidden;
+            transform-origin: 50% 50%;
+            transform: rotateX(0);
+        }
+        .js-spin-fwd .spinner--left {
+            transform: rotateX(-90deg);
+        }
+        .js-spin-bwd .spinner--left {
+            transform: rotateX(90deg);
+        }
+        .js-spin-fwd .spinner--right {
+            transform: rotateX(90deg);
+        }
+        .js-spin-bwd .spinner--right {
+            transform: rotateX(-90deg);
+        }
+        .spinner--right {
+            right: 0;
+            left: auto;
+        }
+
+        /* ----- грани спиннера ----- */
+        .spinner__face {
+            display: none;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .spinner__face.js-next {
+            display: block;
+            transform: rotateX(90deg) translateZ(var(--half-height));
+        }
+        .spinner--right .spinner__face.js-next {
+            transform: rotateX(270deg) translateZ(var(--half-height));
+        }
+        .js-spin-bwd .spinner__face.js-next {
+            transform: rotateX(-90deg) translateZ(var(--half-height));
+        }
+        .js-spin-bwd .spinner--right .spinner__face.js-next {
+            transform: rotateX(-270deg) translateZ(var(--half-height));
+        }
+        .spinner__face.js-active {
+            display: block;
+            transform: translateZ(var(--half-height));
+        }
+
+        /* ----- контент внутри грани ----- */
+        .content {
+            position: absolute;
+            width: 200%;
+            height: 100%;
+            left: 0;
+        }
+        .spinner--right .content {
+            left: -100%;
+        }
+        .content__left,
+        .content__right {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+        }
+        .content__right {
+            right: 0;
+            left: auto;
+        }
+
+        /* левая часть (изображение) */
+        .content__left {
+            background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+        }
+        .content__left:after {
+            position: absolute;
+            display: block;
+            content: "";
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.1);
+            top: 0;
+            left: 0;
+        }
+        .content__left h1 {
+            position: absolute;
+            top: 50%;
+            margin-top: -3vw;
+            text-align: center;
+            font-family: 'Oswald', sans-serif;
+            font-size: 5vw;
+            height: 10vw;
+            opacity: 1;
+            color: #fff;
+            width: 100%;
+            letter-spacing: 0.15em;
+            line-height: 0.6;
+            z-index: 1;
+        }
+        .content__left h1 span {
+            font-size: 1vw;
+            font-weight: 300;
+            letter-spacing: 0.2em;
+            opacity: 0.9;
+            font-family: 'Merriweather', serif;
+        }
+
+        /* правая часть (текст) */
+        .content__right {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+        }
+        .content__right .content__main {
+            position: absolute;
+            font-family: 'Merriweather', serif;
+            text-align: left;
+            color: #fff;
+            font-size: 1.3vw;
+            padding: 0 8vw;
+            line-height: 1.65;
+            font-weight: 300;
+            margin: 0;
+            opacity: 0.85;
+        }
+        .content__right .content__main p:last-child {
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-size: 0.85em;
+            margin-top: 1.2em;
+        }
+        .content__right .content__index {
+            font-size: 30vh;
+            position: absolute;
+            right: -1vh;
+            top: 35vh;
+            opacity: 0.06;
+            font-family: 'Oswald', sans-serif;
+            color: #fff;
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        /* фоновые изображения для каждого типа */
+        [data-type="iceland"] .content__left {
+            background-image: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/iceland.jpg');
+        }
+        [data-type="china"] .content__left {
+            background-image: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/china.jpg');
+        }
+        [data-type="usa"] .content__left {
+            background-image: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/usa.jpg');
+        }
+        [data-type="peru"] .content__left {
+            background-image: url('https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/peru.jpg');
+        }
+
+        /* для правого спиннера картинки не показываем */
+        .spinner--right [data-type="iceland"] .content__left,
+        .spinner--right [data-type="china"] .content__left,
+        .spinner--right [data-type="usa"] .content__left,
+        .spinner--right [data-type="peru"] .content__left {
+            background-image: none;
+        }
+
+        /* адаптив */
+        @media (max-width: 768px) {
+            :root {
+                --page-margin-y: 12px;
+                --page-margin-x: 12px;
+                --height: calc(100vh - 24px);
+                --half-height: calc(50vh - 12px);
+                --neg-half-height: calc(-50vh + 12px);
+            }
+            .content__left h1 {
+                font-size: 8vw;
+                margin-top: -5vw;
+                height: 16vw;
+            }
+            .content__left h1 span {
+                font-size: 1.8vw;
+            }
+            .content__right .content__main {
+                font-size: 2.2vw;
+                padding: 0 6vw;
+            }
+            .content__right .content__index {
+                font-size: 18vh;
+                right: 0;
+                top: 40vh;
+            }
+            .carousel__control {
+                width: 32px;
+                border-radius: 16px 0 0 16px;
+            }
+            .carousel__control a {
+                width: 16px;
+                height: 16px;
+            }
+        }
+        @media (max-width: 480px) {
+            :root {
+                --page-margin-y: 8px;
+                --page-margin-x: 8px;
+                --height: calc(100vh - 16px);
+                --half-height: calc(50vh - 8px);
+                --neg-half-height: calc(-50vh + 8px);
+            }
+            .content__left h1 {
+                font-size: 11vw;
+                margin-top: -7vw;
+                height: 20vw;
+            }
+            .content__left h1 span {
+                font-size: 2.4vw;
+            }
+            .content__right .content__main {
+                font-size: 3.2vw;
+                padding: 0 5vw;
+                line-height: 1.5;
+            }
+            .content__right .content__index {
+                font-size: 14vh;
+                right: 0;
+                top: 42vh;
+            }
+            .carousel__control {
+                width: 26px;
+                gap: 6px;
+                padding: 6px 0;
+            }
+            .carousel__control a {
+                width: 13px;
+                height: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="carousel">
+        <div class="carousel__control"></div>
+        <div class="carousel__stage">
+            <!-- левый спиннер -->
+            <div class="spinner spinner--left">
+                <!-- Исландия -->
+                <div class="spinner__face js-active" data-bg="#27323c">
+                    <div class="content" data-type="iceland">
+                        <div class="content__left">
+                            <h1>ICELAND<br /><span>EUROPE</span></h1>
+                        </div>
+                        <div class="content__right">
+                            <div class="content__main">
+                                <p>“As I flew north to begin my third circuit of Iceland in four years, I was slightly anxious. The number of visitors to Iceland has doubled in that period, and I feared this might mean a little less magic to go around. At the end of this trip, 6000km later, I'm thrilled to report that the magic levels remain high. It's found in glorious football victories and Viking chants, kayaking among icebergs, sitting with puffins under the midnight sun and crunching across brand-new lava fields.”</p>
+                                <p>– Carolyn Bain</p>
+                            </div>
+                            <h3 class="content__index">01</h3>
+                        </div>
+                    </div>
+                </div>
+                <!-- Китай -->
+                <div class="spinner__face" data-bg="#19304a">
+                    <div class="content" data-type="china">
+                        <div class="content__left">
+                            <h1>CHINA<br /><span>ASIA</span></h1>
+                        </div>
+                        <div class="content__right">
+                            <div class="content__main">
+                                <p>“Its modern face is dazzling, but China is no one-trick pony. The world's oldest continuous civilisation isn't all smoked glass and brushed aluminium and while you won't be tripping over artefacts – three decades of round-the-clock development and rash town-planning have taken their toll – rich seams of antiquity await.”</p>
+                                <p>– Damian Harper</p>
+                            </div>
+                            <h3 class="content__index">02</h3>
+                        </div>
+                    </div>
+                </div>
+                <!-- США -->
+                <div class="spinner__face" data-bg="#2b2533">
+                    <div class="content" data-type="usa">
+                        <div class="content__left">
+                            <h1>USA<br /><span>NORTH AMERICA</span></h1>
+                        </div>
+                        <div class="content__right">
+                            <div class="content__main">
+                                <p>“When it comes to travel, America has always floored me with its staggering range of possibilities. Not many other countries have so much natural beauty – mountains, beaches, rainforest, deserts, canyons, glaciers – coupled with fascinating cities to explore, an unrivaled music scene and all the things that make travel so rewarding (friendly locals, great restaurants and farmers markets, and plenty of quirky surprises).”</p>
+                                <p>– Regis St Louis</p>
+                            </div>
+                            <h3 class="content__index">03</h3>
+                        </div>
+                    </div>
+                </div>
+                <!-- Перу -->
+                <div class="spinner__face" data-bg="#312f2d">
+                    <div class="content" data-type="peru">
+                        <div class="content__left">
+                            <h1>PERU<br /><span>SOUTH AMERICA</span></h1>
+                        </div>
+                        <div class="content__right">
+                            <div class="content__main">
+                                <p>“For me, Peru is the molten core of South America, a distillation of the oldest traditions and the finest building, weaving and art made by the most sophisticated cultures on the continent. In Peru the wildest landscapes – from frozen Andean peaks to the deep Amazon – help us re-forge our connection to the natural world. It is also a cultural stew, where diverse peoples live side by side, negotiating modern life with humor and aplomb. Beyond that, the cuisine alone makes it worth the trip. Every return is rich and surprising.”</p>
+                                <p>– Carolyn McCarthy</p>
+                            </div>
+                            <h3 class="content__index">04</h3>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- /spinner--left -->
+        </div><!-- /carousel__stage -->
+    </div><!-- /carousel -->
+
+    <!-- предзагрузчик -->
+    <div style="height:0;width:0;overflow:hidden;position:absolute">
+        <img src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/peru.jpg" alt="" />
+        <img src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/canada.jpg" alt="" />
+        <img src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/china.jpg" alt="" />
+        <img src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/usa.jpg" alt="" />
+        <img src="https://s3-us-west-2.amazonaws.com/s.cdpn.io/215059/iceland.jpg" alt="" />
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous">
+    </script>
+
+    <!-- основной JS -->
+    <script>
+        (function() {
+            'use strict';
+
+            let activeIndex = 0;
+            let limit = 0;
+            let disabled = false;
+            let $stage;
+            let $controls;
+            let canvas = false;
+
+            const SPIN_FORWARD_CLASS = 'js-spin-fwd';
+            const SPIN_BACKWARD_CLASS = 'js-spin-bwd';
+            const DISABLE_TRANSITIONS_CLASS = 'js-transitions-disabled';
+            const SPIN_DUR = 1000;
+
+            function getBase64PixelByColor(hex) {
+                if (!canvas) {
+                    canvas = document.createElement('canvas');
+                    canvas.height = 1;
+                    canvas.width = 1;
+                }
+                if (canvas.getContext) {
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = hex;
+                    ctx.fillRect(0, 0, 1, 1);
+                    return canvas.toDataURL();
+                }
+                return false;
+            }
+
+            function setIndexes() {
+                $('.spinner').children().each(function(i, el) {
+                    $(el).attr('data-index', i);
+                    limit++;
+                });
+            }
+
+            function paintFaces() {
+                $('.spinner__face').each(function(i, el) {
+                    const $el = $(el);
+                    const color = $el.attr('data-bg');
+                    if (color) {
+                        $el.children().css('backgroundImage', 'url(' + getBase64PixelByColor(color) + ')');
+                    }
+                });
+            }
+
+            function duplicateSpinner() {
+                const $el = $('.spinner').parent();
+                const html = $('.spinner').parent().html();
+                $el.append(html);
+                $('.spinner').last().addClass('spinner--right');
+                $('.spinner--right').removeClass('spinner--left');
+            }
+
+            function appendControls() {
+                for (let i = 0; i < limit; i++) {
+                    $('.carousel__control').append('<a href="#" data-index="' + i + '"></a>');
+                }
+                let height = $('.carousel__control').children().last().outerHeight();
+                $('.carousel__control').css('height', (30 + (limit * height)));
+                $controls = $('.carousel__control').children();
+                $controls.eq(activeIndex).addClass('active');
+            }
+
+            function prepareDom() {
+                setIndexes();
+                paintFaces();
+                duplicateSpinner();
+                appendControls();
+            }
+
+            function spin(inc) {
+                if (disabled) return;
+                if (!inc) return;
+                activeIndex += inc;
+                disabled = true;
+
+                if (activeIndex >= limit) {
+                    activeIndex = 0;
+                }
+                if (activeIndex < 0) {
+                    activeIndex = limit - 1;
+                }
+
+                const $nextEls = $('.spinner__face[data-index="' + activeIndex + '"]');
+                $nextEls.addClass('js-next');
+
+                if (inc > 0) {
+                    $stage.addClass(SPIN_FORWARD_CLASS);
+                } else {
+                    $stage.addClass(SPIN_BACKWARD_CLASS);
+                }
+
+                $controls.removeClass('active');
+                $controls.eq(activeIndex).addClass('active');
+
+                setTimeout(function() {
+                    spinCallback(inc);
+                }, SPIN_DUR);
+            }
+
+            function spinCallback(inc) {
+                $('.js-active').removeClass('js-active');
+                $('.js-next').removeClass('js-next').addClass('js-active');
+
+                $stage
+                    .addClass(DISABLE_TRANSITIONS_CLASS)
+                    .removeClass(SPIN_FORWARD_CLASS)
+                    .removeClass(SPIN_BACKWARD_CLASS);
+
+                $('.js-active').each(function(i, el) {
+                    const $el = $(el);
+                    $el.prependTo($el.parent());
+                });
+
+                setTimeout(function() {
+                    $stage.removeClass(DISABLE_TRANSITIONS_CLASS);
+                    disabled = false;
+                }, 100);
+            }
+
+            function attachListeners() {
+                document.addEventListener('keyup', function(e) {
+                    switch (e.keyCode) {
+                        case 38: spin(-1); break;
+                        case 40: spin(1); break;
+                    }
+                });
+
+                $controls.on('click', function(e) {
+                    e.preventDefault();
+                    if (disabled) return;
+                    const $el = $(e.target);
+                    const toIndex = parseInt($el.attr('data-index'), 10);
+                    if (!isNaN(toIndex) && toIndex !== activeIndex) {
+                        spin(toIndex - activeIndex);
+                    }
+                });
+            }
+
+            function assignEls() {
+                $stage = $('.carousel__stage');
+            }
+
+            function init() {
+                assignEls();
+                prepareDom();
+                attachListeners();
+            }
+
+            $(function() {
+                init();
+            });
+
+        })();
+    </script>
+</body>
+</html>

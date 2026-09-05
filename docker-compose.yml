@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: useful-pedagogue-db
+    environment:
+      POSTGRES_USER: pedagogue
+      POSTGRES_PASSWORD: securepassword
+      POSTGRES_DB: useful_pedagogue
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts:/docker-entrypoint-initdb.d   # монтируем папку, а не файл
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: useful-pedagogue-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

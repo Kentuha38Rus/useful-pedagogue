@@ -1,0 +1,89 @@
+@import '../../../assets/styles/variables';
+
+.footer {
+  background: #1a1a2e;
+  color: #ccc;
+  padding: 2rem 8%;
+  .content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    p {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+    .social {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      .socialLink {
+        color: #ccc;
+        font-size: 1.8rem;
+        transition: color 0.3s, transform 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.05);
+        &:hover {
+          color: #fff;
+          transform: translateY(-3px);
+          background: rgba(255,255,255,0.1);
+        }
+        i {
+          line-height: 1;
+        }
+        .maxIcon {
+          width: 28px;   /* под размер иконки */
+          height: 28px;
+          filter: invert(1); /* превращает чёрный в белый */
+          transition: filter 0.3s;
+          display: block;
+        }
+        &:hover .maxIcon {
+          filter: invert(1) brightness(1.2); /* небольшое осветление при наведении */
+        }
+      }
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 1.5rem 5%;
+    .content {
+      flex-direction: column;
+      text-align: center;
+      p {
+        font-size: 0.8rem;
+      }
+      .social {
+        gap: 1.2rem;
+        .socialLink {
+          font-size: 1.5rem;
+          width: 40px;
+          height: 40px;
+          .maxIcon {
+            width: 24px;
+            height: 24px;
+          }
+        }
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .content .social .socialLink {
+      font-size: 1.3rem;
+      width: 36px;
+      height: 36px;
+      .maxIcon {
+        width: 20px;
+        height: 20px;
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+@import '../../assets/styles/variables';
+
+.home {
+  padding: $spacing-md;
+}
+
+.welcome {
+  margin-bottom: $spacing-lg;
+  h2 {
+    font-size: $font-size-large;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-large-mobile;
+    }
+  }
+  p {
+    font-size: $font-size-base;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-base-mobile;
+    }
+  }
+}
+
+.section {
+  margin-bottom: $spacing-xl;
+  h3 {
+    margin-bottom: $spacing-sm;
+    font-size: $font-size-large;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-large-mobile;
+    }
+  }
+}
+
+.quickActions {
+  display: flex;
+  gap: $spacing-md;
+  flex-wrap: wrap;
+  .actionCard {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+    padding: 24px 8px;
+    font-size: $font-size-large;
+    background: $secondary;
+    color: #fff;
+    border-radius: $radius;
+    cursor: pointer;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-large-mobile;
+      padding: 16px 8px;
+      min-width: 100px;
+    }
+    @media (max-width: $breakpoint-small-mobile) {
+      flex: 1 1 100%;
+    }
+  }
+}

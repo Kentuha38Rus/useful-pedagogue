@@ -1,0 +1,146 @@
+@import '../../../assets/styles/variables';
+
+.contacts {
+  padding: 5rem 8%;
+  background: #f8f9fc;
+  text-align: center;
+
+  h2 {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    color: #1a1a2e;
+  }
+
+  .info {
+    display: flex;
+    flex-wrap: wrap;
+  justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+
+    .item {
+  display: flex;
+  align-items: center;
+      gap: 0.8rem;
+      font-size: 1.1rem;
+
+      .icon {
+        font-size: 1.5rem;
+      }
+    }
+  }
+
+  // Контейнер карты – классический подход с padding-bottom
+  .mapContainer {
+    position: relative;
+    width: 100%;
+    // По умолчанию 16:9
+    padding-bottom: 56.25%;
+    height: 0;
+    margin: 2rem auto;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    background: #e9ecf0;
+    flex-shrink: 0;
+
+    .mapIframe {
+    position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    border: none;
+      display: block;
+      // явно запрещаем любые внутренние размеры
+      min-width: 0;
+      min-height: 0;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .mapLink {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 0;
+      background: rgba(240, 244, 255, 0.9);
+      color: $primary;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background 0.2s;
+      font-size: 0.95rem;
+      z-index: 2;
+
+      &:hover {
+        background: darken(#f0f4ff, 5%);
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .social {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    margin-top: 2rem;
+
+    .socialLink {
+      color: #1a1a2e;
+      font-size: 2rem;
+      transition: color 0.2s, transform 0.2s;
+
+    &:hover {
+        color: $primary;
+        transform: scale(1.1);
+      }
+
+      .maxIcon {
+        width: 32px;
+        height: 32px;
+        filter: invert(0);
+        transition: filter 0.2s;
+
+        &:hover {
+          filter: invert(0.4);
+        }
+    }
+  }
+}
+
+  // ----- Адаптивность -----
+@media (max-width: 768px) {
+    padding: 3rem 5%;
+    h2 { font-size: 2rem; }
+
+    .info {
+      flex-direction: column;
+      gap: 1rem;
+      .item {
+        justify-content: center;
+      }
+    }
+    // На планшетах можно оставить 16:9 или изменить
+    .mapContainer {
+      padding-bottom: 66.67%; // 3:2
+  }
+}
+
+@media (max-width: 480px) {
+    .mapContainer {
+      padding-bottom: 75%; // 4:3 – более квадратная
+    }
+  }
+
+  // ----- Десктоп: ширина 70%, padding-bottom пересчитываем -----
+  @media (min-width: 769px) {
+    .mapContainer {
+      width: 70%;
+      max-width: 800px;
+      // Так как width=70% от родителя, то для сохранения 16:9 нужно padding-bottom = 56.25% * 0.7 = 39.375% от родительской ширины
+      padding-bottom: 39.375%;
+      margin: 2rem auto;
+    }
+  }
+}
