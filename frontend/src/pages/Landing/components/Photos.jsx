@@ -2,17 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import styles from './Photos.module.scss';
 
-// Основные фото
-const images = [
-  '/photo/album1.webp',
-  '/photo/album2.webp',
-  '/photo/album3.webp',
-  '/photo/album4.webp',
-  '/photo/album5.webp',
-  '/photo/album6.webp',
-];
-
 const Photos = () => {
+  const BASE_URL = import.meta.env.BASE_URL;
+
+  const images = [
+    `${BASE_URL}photo/album1.webp`,
+    `${BASE_URL}photo/album2.webp`,
+    `${BASE_URL}photo/album3.webp`,
+    `${BASE_URL}photo/album4.webp`,
+    `${BASE_URL}photo/album5.webp`,
+    `${BASE_URL}photo/album6.webp`,
+  ];
+
   const [page, setPage] = useState(0);
   const [totalPages] = useState(images.length);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -38,12 +39,11 @@ const Photos = () => {
 
   const [bookSize, setBookSize] = useState(getBookSize());
 
-  // Определяем время перелистывания в зависимости от ширины экрана
   const getFlippingTime = () => {
     const width = window.innerWidth;
-    if (width < 480) return 2800; // медленнее на мобильных
-    if (width < 768) return 1500; // средняя скорость на планшетах
-    return 1000; // стандартная скорость на десктопе
+    if (width < 480) return 2800;
+    if (width < 768) return 1500;
+    return 1000;
   };
 
   const [flippingTime, setFlippingTime] = useState(getFlippingTime());
@@ -87,14 +87,14 @@ const Photos = () => {
           onFlip={onPage}
           useMouseEvents={false}
           clickEventForward={false}
-          flippingTime={flippingTime} // <-- управляем скоростью
+          flippingTime={flippingTime}
           className={styles.flipBook}
           style={{ margin: '0 auto' }}
         >
           {/* Первая обложка – как страница с фото */}
           <div className={styles.page}>
             <div className={styles.pageImageWrapper}>
-              <img src="/photo/oblogka.jpg" alt="Обложка" />
+              <img src={`${BASE_URL}photo/oblogka.jpg`} alt="Обложка" />
               <div className={styles.overlay}>
                 <h3>Наш центр</h3>
                 <p>Фотогалерея</p>
@@ -117,7 +117,7 @@ const Photos = () => {
           {/* Последняя обложка – как страница с фото */}
           <div className={styles.page}>
             <div className={styles.pageImageWrapper}>
-              <img src="/photo/spasibo.webp" alt="Задняя обложка" />
+              <img src={`${BASE_URL}photo/spasibo.webp`} alt="Задняя обложка" />
               <div className={styles.overlay}>
                 <h3>Спасибо за внимание!</h3>
               </div>

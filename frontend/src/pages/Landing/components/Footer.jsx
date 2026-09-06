@@ -2,6 +2,8 @@ import React from 'react';
 import styles from './Footer.module.scss';
 
 const Footer = () => {
+  const BASE_URL = import.meta.env.BASE_URL;
+
   return (
     <footer className={styles.footer}>
       <div className={styles.content}>
@@ -26,14 +28,14 @@ const Footer = () => {
             <i className="fab fa-telegram-plane"></i>
           </a>
           <a
-            href="#" // замените на реальную ссылку мессенджера Max
+            href="https://web.max.ru/33844" // замените на реальную ссылку мессенджера Max
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Max"
             className={styles.socialLink}
           >
             <img
-              src="/icons/Max_logo_black.svg"
+              src={`${BASE_URL}icons/Max_logo_black.svg`}
               alt="Max"
               className={styles.maxIcon}
             />

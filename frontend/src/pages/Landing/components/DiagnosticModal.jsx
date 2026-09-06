@@ -4,6 +4,7 @@ import styles from './DiagnosticModal.module.scss';
 
 const DiagnosticModal = ({ isOpen, onClose }) => {
   const modalRef = useRef(null);
+  const BASE_URL = import.meta.env.BASE_URL;
 
   // Закрытие по Escape и клику вне модалки
   useEffect(() => {
@@ -43,12 +44,12 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
         <div className={styles.videoContainer}>
           <video
             className={styles.modalVideo}
-            src="/video/logo.mp4"
+            src={`${BASE_URL}video/logo.mp4`}
             autoPlay
             muted
             loop
             playsInline
-            poster="/icons/turtle-192.png"
+            poster={`${BASE_URL}icons/turtle-192.png`}
           />
         </div>
 
@@ -85,7 +86,7 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
               className={styles.messengerLink}
             >
               <img
-                src="/icons/Max_logo_black.svg"
+                src={`${BASE_URL}icons/Max_logo_black.svg`}
                 alt="Max"
                 className={styles.maxIcon}
               />

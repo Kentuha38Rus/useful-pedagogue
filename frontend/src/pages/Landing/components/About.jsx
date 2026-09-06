@@ -34,8 +34,8 @@ const About = () => {
         </div>
       </div>
 
-      <div className={styles.image} onClick={() => openModal('/icons/1.jpg')}>
-        <img src="/icons/1.jpg" alt="Черепашка" />
+      <div className={styles.image} onClick={() => openModal(`${import.meta.env.BASE_URL}icons/1.jpg`)}>
+        <img src={`${import.meta.env.BASE_URL}icons/1.jpg`} alt="Черепашка" />
       </div>
 
       {/* Модальное окно */}

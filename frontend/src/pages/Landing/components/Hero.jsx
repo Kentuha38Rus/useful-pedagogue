@@ -4,6 +4,8 @@ import Button from '../../../components/common/Button';
 import styles from './Hero.module.scss';
 
 const Hero = ({ onDiagnosticClick }) => {
+  const BASE_URL = import.meta.env.BASE_URL;
+
   return (
     <section className={styles.hero}>
       <div className={styles.content}>
@@ -32,12 +34,12 @@ const Hero = ({ onDiagnosticClick }) => {
       <div className={styles.image}>
         <video
           className={styles.heroVideo}
-          src="/video/logo.mp4"
+          src={`${BASE_URL}video/logo.mp4`}
           autoPlay
           muted
           loop
           playsInline
-          poster="/icons/turtle-192.png"
+          poster={`${BASE_URL}icons/turtle-192.png`}
         />
       </div>
     </section>

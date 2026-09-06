@@ -5,6 +5,7 @@ const Contacts = () => {
   const lat = 52.214;
   const lon = 104.101;
   const zoom = 17;
+  const BASE_URL = import.meta.env.BASE_URL;
 
   return (
     <section id="contacts" className={styles.contacts}>
@@ -48,14 +49,14 @@ const Contacts = () => {
       </a>
 
       <div className={styles.social}>
-        <a href="#" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
+        <a href="https://vk.ru/pedagogef" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
           <i className="fab fa-vk"></i>
         </a>
         <a href="#" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
           <i className="fab fa-telegram-plane"></i>
         </a>
-        <a href="#" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
-          <img src="/icons/Max_logo_black.svg" alt="Max" className={styles.maxIcon} />
+        <a href="https://web.max.ru/110044692" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
+          <img src={`${BASE_URL}icons/Max_logo_black.svg`} alt="Max" className={styles.maxIcon} />
         </a>
       </div>
     </section>
