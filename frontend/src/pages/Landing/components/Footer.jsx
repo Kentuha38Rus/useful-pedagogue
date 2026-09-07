@@ -10,7 +10,7 @@ const Footer = () => {
         <p>© 2026 Useful Pedagogue – Все права защищены</p>
         <div className={styles.social}>
           <a
-            href="https://vk.ru/pedagogef" // замените на реальную ссылку VK
+            href="https://vk.ru/pedagogef"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="VK"
@@ -19,7 +19,7 @@ const Footer = () => {
             <i className="fab fa-vk"></i>
           </a>
           <a
-            href="#" // замените на реальную ссылку Telegram
+            href="#"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Telegram"
@@ -28,7 +28,7 @@ const Footer = () => {
             <i className="fab fa-telegram-plane"></i>
           </a>
           <a
-            href="https://web.max.ru/33844" // замените на реальную ссылку мессенджера Max
+            href="https://max.ru/u/f9LHodD0cOK34X3pN8Vsg5wR_EFa_cbKnpNTAihzewgGYN6eRldnoi3Xiuk"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Max"

@@ -6,7 +6,6 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
   const modalRef = useRef(null);
   const BASE_URL = import.meta.env.BASE_URL;
 
-  // Закрытие по Escape и клику вне модалки
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') onClose();
@@ -20,7 +19,7 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.addEventListener('mousedown', handleClickOutside);
-      document.body.style.overflow = 'hidden'; // блокируем скролл
+      document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
@@ -62,7 +61,7 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
 
           <div className={styles.messengers}>
             <a
-              href="https://vk.com/yourpage" // замените на реальную ссылку VK
+              href="https://vk.com/yourpage"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.messengerLink}
@@ -71,7 +70,7 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
               <span>VK</span>
             </a>
             <a
-              href="https://t.me/yourchannel" // замените на реальную ссылку Telegram
+              href="https://t.me/yourchannel"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.messengerLink}
@@ -80,7 +79,7 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
               <span>Telegram</span>
             </a>
             <a
-              href="#" // замените на реальную ссылку мессенджера Max
+              href="https://max.ru/u/f9LHodD0cOK34X3pN8Vsg5wR_EFa_cbKnpNTAihzewgGYN6eRldnoi3Xiuk"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.messengerLink}

@@ -26,7 +26,6 @@ const Contacts = () => {
         </div>
       </div>
 
-      {/* Контейнер с картой (только iframe) */}
       <div className={styles.mapContainer}>
         <iframe
           title="Карта центра"
@@ -38,7 +37,6 @@ const Contacts = () => {
         />
       </div>
 
-      {/* Ссылка отдельно, вне контейнера */}
       <a
         href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=${zoom}/${lat}/${lon}`}
         target="_blank"
@@ -55,7 +53,12 @@ const Contacts = () => {
         <a href="#" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
           <i className="fab fa-telegram-plane"></i>
         </a>
-        <a href="https://web.max.ru/110044692" target="_blank" rel="noopener noreferrer" className={styles.socialLink}>
+        <a
+          href="https://max.ru/u/f9LHodD0cOK34X3pN8Vsg5wR_EFa_cbKnpNTAihzewgGYN6eRldnoi3Xiuk"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={styles.socialLink}
+        >
           <img src={`${BASE_URL}icons/Max_logo_black.svg`} alt="Max" className={styles.maxIcon} />
         </a>
       </div>
