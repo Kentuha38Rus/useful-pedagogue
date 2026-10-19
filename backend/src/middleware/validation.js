@@ -28,6 +28,10 @@ const schemas = {
     refreshToken: Joi.string().required(),
   }),
 
+  logout: Joi.object({
+    refreshToken: Joi.string().optional(),
+  }),
+
   updateUser: Joi.object({
     name: Joi.string().min(1).max(120).optional(),
     phone: Joi.string().max(30).optional(),
@@ -99,7 +103,7 @@ const validate = (schemaName) => (req, res, next) => {
   if (!schema) return next();
   const { error, value } = schema.validate(req.body, {
     abortEarly: false,
-    stripUnknown: true, // 🔥 было false — теперь лишние поля отбрасываются
+    stripUnknown: true,
     convert: true,
   });
   if (error) {

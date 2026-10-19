@@ -1,4 +1,7 @@
+const jwt = require('jsonwebtoken');
 const authService = require('../services/authService');
+const redis = require('../config/redis');
+const { refreshSecret } = require('../config/jwt');
 
 exports.register = async (req, res, next) => {
   try {
@@ -57,7 +60,26 @@ exports.refresh = async (req, res, next) => {
   }
 };
 
-exports.logout = (req, res) => {
-  // TODO: добавить refresh-token blacklist в Redis для мгновенного отзыва
-  res.json({ success: true, message: 'Logged out successfully' });
+exports.logout = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body || {};
+
+    if (refreshToken) {
+      try {
+        const decoded = jwt.verify(refreshToken, refreshSecret);
+        const ttl = Math.max(0, (decoded.exp || 0) - Math.floor(Date.now() / 1000));
+        if (ttl > 0) {
+          // Ключ = префикс + сам токен, значение не важно, TTL = оставшийся срок
+          await redis.set(`bl:${refreshToken}`, '1', { EX: ttl });
+        }
+      } catch (_) {
+        // Невалидный/истёкший токен — всё равно отвечаем успехом,
+        // чтобы клиент не пытался ретраить logout бесконечно.
+      }
+    }
+
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    next(error);
+  }
 };

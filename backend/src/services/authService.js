@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { Op } = require('sequelize');
+const redis = require('../config/redis');
 const {
   accessSecret,
   refreshSecret,
@@ -92,18 +93,38 @@ class AuthService {
   }
 
   async refreshAccessToken(refreshToken) {
+    if (!refreshToken) {
+      const err = new Error('Invalid refresh token');
+      err.status = 401;
+      throw err;
+    }
+
     try {
+      // 1. Проверяем blacklist
+      const revoked = await redis.get(`bl:${refreshToken}`);
+      if (revoked) {
+        const err = new Error('Refresh token revoked');
+        err.status = 401;
+        throw err;
+      }
+
+      // 2. Проверяем подпись и срок
       const decoded = jwt.verify(refreshToken, refreshSecret);
+
+      // 3. Проверяем, что пользователь ещё существует
       const user = await User.findByPk(decoded.id);
       if (!user) {
         const err = new Error('Invalid refresh token');
         err.status = 401;
         throw err;
       }
+
+      // 4. Выпускаем новый access-токен
       const payload = { id: user.id, email: user.email, role: user.role };
       const accessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn });
       return { accessToken };
     } catch (e) {
+      if (e.status === 401) throw e;
       const err = new Error('Invalid refresh token');
       err.status = 401;
       throw err;
