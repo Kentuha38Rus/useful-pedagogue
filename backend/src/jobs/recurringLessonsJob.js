@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
 const { Group, Lesson } = require('../models');
+const { withLock } = require('../utils/distributedLock');
 
 const WEEKS_AHEAD = 4;
 const DAY_NAMES = [
@@ -172,8 +173,8 @@ async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
 // ---------- Cron ----------
 
 function registerRecurringLessonsJob() {
-  // Ежедневно в 02:00
-  cron.schedule('0 2 * * *', async () => {
+  // Ежедневно в 02:00. TTL 1 час — защита от зависшего лока.
+  cron.schedule('0 2 * * *', withLock('cron:recurring-lessons', 3600, async () => {
     console.log('[recurring] Generating lessons for all groups...');
     try {
       const groups = await Group.findAll({
@@ -195,9 +196,9 @@ function registerRecurringLessonsJob() {
     } catch (e) {
       console.error('[recurring] Job failed:', e);
     }
-  });
+  }));
 
-  console.log('[recurring] Cron registered (daily at 02:00).');
+  console.log('[recurring] Cron registered (daily at 02:00, with lock).');
 }
 
 module.exports = {

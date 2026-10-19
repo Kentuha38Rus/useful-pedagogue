@@ -11,6 +11,7 @@ const {
 } = require('../models');
 const notificationService = require('../services/notificationService');
 const ChatService = require('../services/chatService');
+const { withLock } = require('../utils/distributedLock');
 
 const TIMEOUT_MINUTES = 10;
 
@@ -27,7 +28,7 @@ function formatDate(dateStr) {
 
 module.exports = (io) => {
   // ---------- 1. Автоматические напоминания за час до занятия ----------
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule('0 * * * *', withLock('cron:auto-reminder', 3000, async () => {
     console.log('[cron] Running auto-reminder job...');
     try {
       const now = new Date();
@@ -165,10 +166,10 @@ module.exports = (io) => {
     } catch (error) {
       console.error('[cron] Auto-reminder job failed:', error);
     }
-  });
+  }));
 
   // ---------- 2. Проверка «нет ответа через 10 минут» ----------
-  cron.schedule('*/2 * * * *', async () => {
+  cron.schedule('*/2 * * * *', withLock('cron:timeout-check', 100, async () => {
     try {
       const cutoff = new Date(Date.now() - TIMEOUT_MINUTES * 60 * 1000);
 
@@ -281,5 +282,7 @@ module.exports = (io) => {
     } catch (error) {
       console.error('[cron] Timeout job failed:', error);
     }
-  });
+  }));
+
+  console.log('[cron] Reminder jobs registered (hourly + every 2 min, with lock).');
 };
