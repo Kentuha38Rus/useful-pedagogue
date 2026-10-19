@@ -3,19 +3,22 @@ import { BrowserRouter } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import AppRouter from './router';
 import { loadUser, forceInitialized } from './store/slices/authSlice';
+import { initSocket, fetchDialogs } from './store/slices/chatSlice';
 import './App.css';
 
 function App() {
   const dispatch = useDispatch();
-  const { user, loading, initialized } = useSelector((state) => state.auth);
+  const { user, loading, initialized, isAuthenticated } = useSelector(
+    (state) => state.auth
+  );
 
+  // Загрузка профиля
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token && !user && !loading && !initialized) {
       dispatch(loadUser());
     }
 
-    // Если через 5 секунд всё ещё не инициализировано – принудительно завершаем загрузку
     const timer = setTimeout(() => {
       if (!initialized) {
         console.warn('⚠️ LoadUser timeout – force initialized');
@@ -25,6 +28,13 @@ function App() {
 
     return () => clearTimeout(timer);
   }, [dispatch, user, loading, initialized]);
+
+  // Инициализация чата после появления user
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    dispatch(initSocket());
+    dispatch(fetchDialogs());
+  }, [dispatch, isAuthenticated, user?.id]);
 
   return (
     <BrowserRouter>

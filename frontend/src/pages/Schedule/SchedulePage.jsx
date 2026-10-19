@@ -1,37 +1,32 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { fetchMySchedule } from '../../store/slices/scheduleSlice';
 import { fetchChildren } from '../../store/slices/authSlice';
 import Card from '../../components/common/Card';
 import styles from './SchedulePage.module.scss';
 
 const SchedulePage = () => {
   const dispatch = useDispatch();
-  const { children } = useSelector((state) => state.auth);
+  const { user, children } = useSelector((state) => state.auth);
+  const { lessons, loading, error } = useSelector((state) => state.schedule);
 
   useEffect(() => {
-    dispatch(fetchChildren());
-  }, [dispatch]);
+    dispatch(fetchMySchedule());
+    if (user?.role === 'parent') {
+      dispatch(fetchChildren());
+    }
+  }, [dispatch, user?.role]);
 
-  // Собираем все занятия из групп детей
-  const allLessons = children
-    .filter(child => child.group && child.group.lessons && child.group.lessons.length > 0)
-    .flatMap(child => 
-      child.group.lessons.map(lesson => ({
-        ...lesson,
-        childName: child.name,
-        groupName: child.group.name,
-        groupId: child.group.id,
-      }))
-    )
-    .sort((a, b) => {
-      // Сортировка по дате и времени
-      const dateA = new Date(a.date + 'T' + a.startTime);
-      const dateB = new Date(b.date + 'T' + b.startTime);
-      return dateA - dateB;
+  // Для родителя — карта "groupId → [имена детей]"
+  const childrenByGroup = children.reduce((acc, child) => {
+    (child.groups || []).forEach((g) => {
+      if (!acc[g.id]) acc[g.id] = [];
+      acc[g.id].push(child.name);
     });
+    return acc;
+  }, {});
 
-  // Группировка по дате (для удобства)
-  const groupedLessons = allLessons.reduce((acc, lesson) => {
+  const groupedLessons = lessons.reduce((acc, lesson) => {
     const date = lesson.date;
     if (!acc[date]) acc[date] = [];
     acc[date].push(lesson);
@@ -43,31 +38,66 @@ const SchedulePage = () => {
   return (
     <div className={styles.schedulePage}>
       <h1>Расписание занятий</h1>
-      {allLessons.length === 0 ? (
-        <p>У ваших детей пока нет занятий</p>
-      ) : (
-        <div className={styles.scheduleList}>
-          {dates.map(date => (
-            <div key={date} className={styles.dateGroup}>
-              <h3 className={styles.dateHeader}>{date}</h3>
-              {groupedLessons[date].map(lesson => (
-                <Card key={lesson.id} className={styles.lessonCard}>
-                  <div className={styles.lessonTime}>
-                    <span>{lesson.startTime} – {lesson.endTime}</span>
-                  </div>
-                  <div className={styles.lessonInfo}>
-                    <p><strong>Ребёнок:</strong> {lesson.childName}</p>
-                    <p><strong>Группа:</strong> {lesson.groupName}</p>
-                    {lesson.topic && <p><strong>Тема:</strong> {lesson.topic}</p>}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ))}
-        </div>
+
+      {loading && <p className={styles.info}>Загрузка...</p>}
+      {error && <p className={styles.error}>{error}</p>}
+
+      {!loading && dates.length === 0 && (
+        <p className={styles.info}>Занятий пока нет</p>
       )}
+
+      <div className={styles.scheduleList}>
+        {dates.map((date) => (
+          <div key={date} className={styles.dateGroup}>
+            <h3 className={styles.dateHeader}>{formatDate(date)}</h3>
+
+            {groupedLessons[date].map((lesson) => (
+              <Card key={lesson.id} className={styles.lessonCard}>
+                <div className={styles.lessonTime}>
+                  {lesson.startTime?.slice(0, 5)} – {lesson.endTime?.slice(0, 5)}
+                </div>
+
+                <div className={styles.lessonInfo}>
+                  <p><strong>Группа:</strong> {lesson.group?.name || '—'}</p>
+
+                  {lesson.group?.course && (
+                    <p><strong>Курс:</strong> {lesson.group.course.name}</p>
+                  )}
+
+                  {user?.role === 'parent' &&
+                    lesson.groupId &&
+                    childrenByGroup[lesson.groupId] && (
+                      <p>
+                        <strong>Дети:</strong>{' '}
+                        {childrenByGroup[lesson.groupId].join(', ')}
+                      </p>
+                    )}
+
+                  {user?.role === 'teacher' && lesson.attendances && (
+                    <p><strong>Отмечено:</strong> {lesson.attendances.length}</p>
+                  )}
+
+                  {lesson.topic && (
+                    <p><strong>Тема:</strong> {lesson.topic}</p>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
+};
+
+const formatDate = (dateStr) => {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    weekday: 'short',
+  });
 };
 
 export default SchedulePage;

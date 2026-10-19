@@ -1,13 +1,23 @@
+# ---------- Stage 1: deps ----------
+FROM node:18-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
+# ---------- Stage 2: runtime ----------
 FROM node:18-alpine
-
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+RUN apk add --no-cache wget \
+ && addgroup -S app && adduser -S app -G app
 
-COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+COPY --chown=app:app . .
 
+USER app
 EXPOSE 5000
 
-CMD ["npm", "start"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:5000/health || exit 1
+
+CMD ["node", "src/app.js"]

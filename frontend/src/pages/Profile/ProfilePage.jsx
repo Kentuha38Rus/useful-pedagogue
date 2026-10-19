@@ -57,38 +57,44 @@ const ProfilePage = () => {
       <Card className={styles.childrenCard}>
         <div className={styles.header}>
           <h3>Мои дети</h3>
-          <Button variant="primary" size="small" onClick={openAddChild}>+ Добавить</Button>
+          <Button variant="primary" size="small" onClick={openAddChild}>
+            + Добавить
+          </Button>
         </div>
         {children.length === 0 ? (
           <p>Нет добавленных детей</p>
         ) : (
-          children.map(child => (
+          children.map((child) => (
             <div key={child.id} className={styles.childItem}>
               <div className={styles.childInfo}>
                 <span className={styles.childName}>
                   {child.name} {child.birthDate && `(${child.birthDate})`}
                 </span>
-                {child.group ? (
-                  <div className={styles.groupInfo}>
-                    <p><strong>Группа:</strong> {child.group.name}</p>
-                    {child.group.lessons && child.group.lessons.length > 0 ? (
-                      <div className={styles.schedule}>
-                        <p><strong>Расписание:</strong></p>
-                        <ul>
-                          {child.group.lessons.map(lesson => (
-                            <li key={lesson.id}>
-                              {lesson.date} {lesson.startTime}–{lesson.endTime}
-                              {lesson.topic && ` (${lesson.topic})`}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : (
-                      <p className={styles.noSchedule}>Расписание не задано</p>
-                    )}
-                  </div>
+
+                {/* Перебираем ВСЕ группы ребёнка */}
+                {child.groups && child.groups.length > 0 ? (
+                  child.groups.map((group) => (
+                    <div key={group.id} className={styles.groupInfo}>
+                      <p><strong>Группа:</strong> {group.name}</p>
+                      {group.lessons && group.lessons.length > 0 ? (
+                        <div className={styles.schedule}>
+                          <p><strong>Расписание:</strong></p>
+                          <ul>
+                            {group.lessons.map((lesson) => (
+                              <li key={lesson.id}>
+                                {lesson.date} {lesson.startTime}–{lesson.endTime}
+                                {lesson.topic && ` (${lesson.topic})`}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className={styles.noSchedule}>Расписание не задано</p>
+                      )}
+                    </div>
+                  ))
                 ) : (
-                  <p className={styles.noGroup}>Ребёнок не записан в группу</p>
+                  <p className={styles.noGroup}>Ребёнок не записан ни в одну группу</p>
                 )}
               </div>
               <div className={styles.actions}>

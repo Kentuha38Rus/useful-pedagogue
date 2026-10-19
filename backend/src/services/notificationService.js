@@ -15,6 +15,10 @@ if (publicVapidKey && privateVapidKey) {
 }
 
 class NotificationService {
+  /**
+   * Отправка payload на список подписок (у каждой — endpoint + keys).
+   * payload: { title, body, icon?, badge?, tag?, data?, actions? }
+   */
   static async sendPushNotifications(subscriptions, payload) {
     const results = [];
     for (const sub of subscriptions) {
@@ -26,25 +30,50 @@ class NotificationService {
         },
       };
       try {
-        const response = await webpush.sendNotification(pushSubscription, JSON.stringify(payload));
+        const response = await webpush.sendNotification(
+          pushSubscription,
+          JSON.stringify(payload)
+        );
         results.push({
           userId: sub.user_id,
           success: true,
           statusCode: response.statusCode,
         });
       } catch (error) {
-        console.error('Push notification error:', error);
+        console.error('Push notification error:', error.statusCode, error.message);
         results.push({
           userId: sub.user_id,
           success: false,
           error: error.message,
         });
-        if (error.statusCode === 410) {
-          await sub.destroy();
+        // 404/410 — подписка мертва, удаляем
+        if (error.statusCode === 404 || error.statusCode === 410) {
+          await sub.destroy().catch(() => {});
         }
       }
     }
     return results;
+  }
+
+  /**
+   * Отправка всем подпискам конкретного пользователя.
+   */
+  static async sendToUser(userId, payload) {
+    const subs = await PushSubscription.findAll({ where: { user_id: userId } });
+    if (!subs.length) return [];
+    return this.sendPushNotifications(subs, payload);
+  }
+
+  /**
+   * Отправка всем подпискам списка пользователей (например, админам).
+   */
+  static async sendToUsers(userIds, payload) {
+    if (!userIds || !userIds.length) return [];
+    const subs = await PushSubscription.findAll({
+      where: { user_id: userIds },
+    });
+    if (!subs.length) return [];
+    return this.sendPushNotifications(subs, payload);
   }
 
   static async saveSubscription(userId, subscription) {
@@ -52,6 +81,7 @@ class NotificationService {
     const existing = await PushSubscription.findOne({ where: { endpoint } });
     if (existing) {
       await existing.update({
+        user_id: userId,
         auth_key: keys.auth,
         p256dh_key: keys.p256dh,
       });

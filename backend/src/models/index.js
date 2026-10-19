@@ -10,8 +10,10 @@ const Attendance = require('./Attendance')(sequelize, Sequelize.DataTypes);
 const Message = require('./Message')(sequelize, Sequelize.DataTypes);
 const PushSubscription = require('./PushSubscription')(sequelize, Sequelize.DataTypes);
 const Notification = require('./Notification')(sequelize, Sequelize.DataTypes);
+const ChildGroup = require('./ChildGroup')(sequelize, Sequelize.DataTypes);
+const LessonResponse = require('./LessonResponse')(sequelize, Sequelize.DataTypes);
 
-// Associations
+// ---- Связи ----
 User.hasMany(Child, { foreignKey: 'parentId', as: 'children' });
 Child.belongsTo(User, { foreignKey: 'parentId', as: 'parent' });
 
@@ -24,8 +26,19 @@ Group.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 Group.hasMany(Lesson, { foreignKey: 'groupId', as: 'lessons' });
 Lesson.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
 
-Child.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
-Group.hasMany(Child, { foreignKey: 'groupId', as: 'children' });
+// many-to-many
+Child.belongsToMany(Group, {
+  through: ChildGroup,
+  foreignKey: 'childId',
+  otherKey: 'groupId',
+  as: 'groups',
+});
+Group.belongsToMany(Child, {
+  through: ChildGroup,
+  foreignKey: 'groupId',
+  otherKey: 'childId',
+  as: 'children',
+});
 
 Lesson.hasMany(Attendance, { foreignKey: 'lessonId', as: 'attendances' });
 Attendance.belongsTo(Lesson, { foreignKey: 'lessonId', as: 'lesson' });
@@ -33,7 +46,16 @@ Attendance.belongsTo(Lesson, { foreignKey: 'lessonId', as: 'lesson' });
 Child.hasMany(Attendance, { foreignKey: 'childId', as: 'attendances' });
 Attendance.belongsTo(Child, { foreignKey: 'childId', as: 'child' });
 
-// Сбор всех моделей для вызова associate
+// ---- LessonResponse ----
+Lesson.hasMany(LessonResponse, { foreignKey: 'lesson_id', as: 'responses' });
+LessonResponse.belongsTo(Lesson, { foreignKey: 'lesson_id', as: 'lesson' });
+
+Child.hasMany(LessonResponse, { foreignKey: 'child_id', as: 'lessonResponses' });
+LessonResponse.belongsTo(Child, { foreignKey: 'child_id', as: 'child' });
+
+User.hasMany(LessonResponse, { foreignKey: 'parent_id', as: 'lessonResponses' });
+LessonResponse.belongsTo(User, { foreignKey: 'parent_id', as: 'parent' });
+
 const db = {
   User,
   Child,
@@ -44,13 +66,12 @@ const db = {
   Message,
   PushSubscription,
   Notification,
+  ChildGroup,
+  LessonResponse,
 };
 
-// Вызов associate, если необходимо
-Object.keys(db).forEach(modelName => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
-  }
+Object.keys(db).forEach((modelName) => {
+  if (db[modelName].associate) db[modelName].associate(db);
 });
 
 module.exports = {

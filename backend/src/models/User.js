@@ -9,16 +9,15 @@ module.exports = (sequelize) => {
     },
     username: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,   // теперь может быть null (если регистрируются только по email)
       unique: true,
       validate: {
         len: [3, 50],
-        isAlphanumeric: true, // только буквы и цифры (можно настроить)
       },
     },
     email: {
       type: DataTypes.STRING,
-      allowNull: true, // теперь необязательное
+      allowNull: true,
       unique: true,
       validate: { isEmail: true },
     },
@@ -41,6 +40,20 @@ module.exports = (sequelize) => {
     },
   }, {
     timestamps: true,
+    hooks: {
+      beforeCreate: (user) => {
+        if (user.email) user.email = user.email.toLowerCase();
+        if (user.username) user.username = user.username.toLowerCase();
+      },
+      beforeUpdate: (user) => {
+        if (user.changed('email') && user.email) {
+          user.email = user.email.toLowerCase();
+        }
+        if (user.changed('username') && user.username) {
+          user.username = user.username.toLowerCase();
+        }
+      },
+    },
   });
 
   return User;

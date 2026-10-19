@@ -1,38 +1,49 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
-import { markAllAsRead } from '../../store/slices/chatSlice';
+import { useSelector } from 'react-redux';
 import styles from './BottomNav.module.scss';
 
 const BottomNav = () => {
-  const dispatch = useDispatch();
-  const handleChatClick = () => {
-    dispatch(markAllAsRead());
-  };
+  const { user } = useSelector((state) => state.auth);
+  const unreadTotal = useSelector((state) => state.chat.unreadTotal);
+
+  // Общее число непрочитанных сообщений (не диалогов)
+  const chatBadge = unreadTotal > 99 ? '99+' : unreadTotal;
+
+  let navItems = [];
+  if (user?.role === 'teacher') {
+    navItems = [
+      { to: '/app', label: 'Главная', icon: '🏠', end: true },
+      { to: '/app/teacher/groups', label: 'Группы', icon: '👥' },
+      { to: '/app/chats', label: 'Чаты', icon: '💬', badge: chatBadge },
+      { to: '/app/profile', label: 'Профиль', icon: '👤' },
+    ];
+  } else {
+    navItems = [
+      { to: '/app', label: 'Главная', icon: '🏠', end: true },
+      { to: '/app/courses', label: 'Курсы', icon: '📚' },
+      { to: '/app/chats', label: 'Чаты', icon: '💬', badge: chatBadge },
+      { to: '/app/schedule', label: 'Расписание', icon: '📅' },
+      { to: '/app/profile', label: 'Профиль', icon: '👤' },
+    ];
+  }
 
   return (
     <nav className={styles.bottomNav}>
-      <NavLink to="/app" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} end>
-        <span className={styles.icon}>🏠</span>
-        <span className={styles.label}>Главная</span>
-      </NavLink>
-      <NavLink to="/app/courses" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}>
-        <span className={styles.icon}>📚</span>
-        <span className={styles.label}>Курсы</span>
-      </NavLink>
-      <NavLink to="/app/chats" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={handleChatClick}>
-        <span className={styles.icon}>💬</span>
-        <span className={styles.label}>Чаты</span>
-        <span className={styles.badge}>3</span> {/* пример */}
-      </NavLink>
-      <NavLink to="/app/schedule" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}>
-        <span className={styles.icon}>📅</span>
-        <span className={styles.label}>Расписание</span>
-      </NavLink>
-      <NavLink to="/app/profile" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}>
-        <span className={styles.icon}>👤</span>
-        <span className={styles.label}>Профиль</span>
-      </NavLink>
+      {navItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={({ isActive }) =>
+            `${styles.link} ${isActive ? styles.active : ''}`
+          }
+          end={item.end}
+        >
+          <span className={styles.icon}>{item.icon}</span>
+          <span className={styles.label}>{item.label}</span>
+          {item.badge > 0 && <span className={styles.badge}>{item.badge}</span>}
+        </NavLink>
+      ))}
     </nav>
   );
 };

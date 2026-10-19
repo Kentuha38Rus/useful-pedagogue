@@ -10,8 +10,13 @@ const AddChildModal = ({ isOpen, onClose, groupId, onChildAdded }) => {
   const [selectedChildId, setSelectedChildId] = useState('');
   const [error, setError] = useState(null);
 
-  // Защита от undefined – всегда используем массив
   const childrenList = availableChildren || [];
+
+  // 👇 Фильтруем: убираем детей, которые уже в этой группе
+  const childrenNotInGroup = childrenList.filter((child) => {
+    if (!child.groups) return true;
+    return !child.groups.some((g) => g.id === groupId);
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -54,15 +59,16 @@ const AddChildModal = ({ isOpen, onClose, groupId, onChildAdded }) => {
               disabled={loading}
             >
               <option value="">-- Выберите --</option>
-              {childrenList.map((child) => (
+              {childrenNotInGroup.map((child) => (
                 <option key={child.id} value={child.id}>
-                  {child.name} {child.parent ? `(родитель: ${child.parent.name})` : ''}
+                  {child.name}
+                  {child.parent ? ` (родитель: ${child.parent.name})` : ''}
                 </option>
               ))}
             </select>
-            {childrenList.length === 0 && !loading && (
+            {childrenNotInGroup.length === 0 && !loading && (
               <p style={{ color: '#888', fontSize: '14px' }}>
-                Нет доступных детей для добавления
+                Нет доступных детей для добавления в эту группу
               </p>
             )}
           </div>

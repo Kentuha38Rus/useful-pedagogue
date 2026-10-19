@@ -3,7 +3,8 @@
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background-color: $background;
   color: $text-primary;
   font-family: $font-family;
@@ -11,18 +12,21 @@
 
 .app-main {
   flex: 1;
-  padding-bottom: 7px;   /* высота BottomNav + отступ */
-  padding-top: 1px;      /* высота Header + отступ */
+  min-height: 0;
+  padding-top: 48px;      /* Header */
+  padding-bottom: 96px;   /* BottomNav (64) + отступ (16) + зазор (16) */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
   @media (max-width: $breakpoint-mobile) {
-    padding-bottom: 60px;
-    padding-top: 56px;
+    padding-top: 48px;
+    padding-bottom: 90px; /* BottomNav (58) + отступ (14) + зазор (18) */
   }
 }
 
-// Дополнительная адаптация для очень маленьких экранов
 @media (max-width: $breakpoint-small-mobile) {
   .app-main {
-    padding-bottom: 56px;
-    padding-top: 1px;
+    padding-top: 48px;
+    padding-bottom: 86px; /* BottomNav (52) + отступ (14) + зазор (20) */
   }
 }

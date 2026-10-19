@@ -11,19 +11,24 @@ const Hero = ({ onDiagnosticClick }) => {
       <div className={styles.content}>
         <h1>Ваш Полезный педагог</h1>
         <p>
-          Профессиональная помощь педагогов, удобное расписание 
+          Профессиональная помощь педагогов, удобное расписание
           и полный контроль успехов вашего ребёнка
         </p>
         <div className={styles.buttons}>
           <Link to="/login">
-            <Button variant="primary" size="large">Войти в личный кабинет</Button>
+            <Button variant="primary" size="large">
+              Войти в личный кабинет
+            </Button>
           </Link>
-          <button
+
+          {/* 👇 outline: зелёная рамка + зелёный текст, hover — заливка */}
+          <Button
+            variant="outline"
+            size="large"
             onClick={onDiagnosticClick}
-            className={styles.diagnosticBtn}
           >
-            <Button variant="secondary" size="large">Запись на бесплатную диагностику</Button>
-          </button>
+            Запись на бесплатную диагностику
+          </Button>
         </div>
         <div className={styles.stats}>
           <span>👨‍🏫 Опытный педагог</span>

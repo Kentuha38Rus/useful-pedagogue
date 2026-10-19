@@ -3,19 +3,23 @@ const AdminController = require('../controllers/adminController');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
-// Все маршруты требуют аутентификации и роль admin
 router.use(auth);
 router.use(roleCheck('admin'));
 
 // Статистика
 router.get('/stats', AdminController.getStats);
 
+// Уведомления по сегодняшним занятиям (web-push + socket)
+router.post('/lessons/notify-today', AdminController.notifyTodayLessons);
+
+// Зарплата
+router.get('/salary', AdminController.getSalaryReport);
+
 // Пользователи
 router.get('/users', AdminController.getAllUsers);
 router.get('/users/:id', AdminController.getUserDetails);
 router.patch('/users/:id/role', AdminController.updateUserRole);
 router.post('/users', AdminController.createUser);
-// НОВЫЙ МАРШРУТ: удаление пользователя
 router.delete('/users/:id', AdminController.deleteUser);
 
 // Группы

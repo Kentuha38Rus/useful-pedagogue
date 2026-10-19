@@ -8,14 +8,19 @@ import UsersPage from '../pages/Users/UsersPage';
 import GroupsPage from '../pages/Groups/GroupsPage';
 import CoursesPage from '../pages/Courses/CoursesPage';
 import PaymentsPage from '../pages/Payments/PaymentsPage';
+import SalaryPage from '../pages/Salary/SalaryPage';
+import ChatsPage from '../pages/Chats/ChatsPage';
 import Sidebar from '../components/layout/Sidebar';
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading, initialized } = useSelector((state) => state.auth);
-  console.log('PrivateRoute:', { isAuthenticated, loading, initialized });
+  const { isAuthenticated, loading, initialized } = useSelector(
+    (state) => state.auth
+  );
 
   if (!initialized || loading) {
-    return <div style={{ padding: '20px', textAlign: 'center' }}>Загрузка...</div>;
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>Загрузка...</div>
+    );
   }
 
   if (!isAuthenticated) {
@@ -28,9 +33,7 @@ const PrivateRoute = ({ children }) => {
 const AdminLayout = ({ children }) => (
   <div style={{ display: 'flex', width: '100%' }}>
     <Sidebar />
-    <div style={{ flex: 1, padding: '20px' }}>
-      {children}
-    </div>
+    <div style={{ flex: 1, padding: '20px', minWidth: 0 }}>{children}</div>
   </div>
 );
 
@@ -38,6 +41,7 @@ const AppRouter = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+
       <Route
         path="/"
         element={
@@ -48,6 +52,7 @@ const AppRouter = () => {
           </PrivateRoute>
         }
       />
+
       <Route
         path="/users"
         element={
@@ -58,6 +63,7 @@ const AppRouter = () => {
           </PrivateRoute>
         }
       />
+
       <Route
         path="/groups"
         element={
@@ -68,6 +74,7 @@ const AppRouter = () => {
           </PrivateRoute>
         }
       />
+
       <Route
         path="/courses"
         element={
@@ -78,6 +85,7 @@ const AppRouter = () => {
           </PrivateRoute>
         }
       />
+
       <Route
         path="/payments"
         element={
@@ -88,6 +96,40 @@ const AppRouter = () => {
           </PrivateRoute>
         }
       />
+
+      <Route
+        path="/salary"
+        element={
+          <PrivateRoute>
+            <AdminLayout>
+              <SalaryPage />
+            </AdminLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/chats"
+        element={
+          <PrivateRoute>
+            <AdminLayout>
+              <ChatsPage />
+            </AdminLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/chats/:chatId"
+        element={
+          <PrivateRoute>
+            <AdminLayout>
+              <ChatsPage />
+            </AdminLayout>
+          </PrivateRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

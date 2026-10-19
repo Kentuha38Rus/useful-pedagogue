@@ -8,7 +8,7 @@ module.exports = (sequelize) => {
       autoIncrement: true,
     },
     user_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,         // 👈 было INTEGER — исправлено
       allowNull: false,
       references: {
         model: 'Users',

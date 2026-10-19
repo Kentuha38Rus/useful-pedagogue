@@ -15,14 +15,6 @@ module.exports = (sequelize) => {
       type: DataTypes.DATEONLY,
       allowNull: true,
     },
-    groupId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      references: {
-        model: 'Groups',
-        key: 'id',
-      },
-    },
   }, {
     timestamps: true,
   });

@@ -12,7 +12,7 @@ module.exports = (sequelize) => {
       allowNull: false,
     },
     sender_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,
       allowNull: false,
       references: {
         model: 'Users',
@@ -30,6 +30,12 @@ module.exports = (sequelize) => {
     read_at: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    // 👇 Системные сообщения: "родитель не ответил", автоуведомления и т.п.
+    is_system: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
   }, {
     tableName: 'messages',

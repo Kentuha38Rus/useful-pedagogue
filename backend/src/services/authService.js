@@ -1,38 +1,85 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
-const { Op } = require('sequelize'); // ← добавлен импорт
-const { accessSecret, refreshSecret, accessExpiresIn, refreshExpiresIn } = require('../config/jwt');
+const { Op } = require('sequelize');
+const {
+  accessSecret,
+  refreshSecret,
+  accessExpiresIn,
+  refreshExpiresIn,
+} = require('../config/jwt');
+
+const BCRYPT_ROUNDS = 10;
 
 class AuthService {
   async register(userData) {
-    const { email, password, name, phone, role = 'parent' } = userData;
-    const existing = await User.findOne({ where: { email } });
-    if (existing) {
-      throw new Error('User already exists');
+    const { email, password, name, phone, username } = userData;
+
+    // ⚠️ роль здесь НЕ принимается — публичная регистрация всегда parent.
+    // Других пользователей создаёт админ через /api/admin/users.
+    const role = 'parent';
+
+    const normalizedEmail = email ? email.toLowerCase().trim() : null;
+    const normalizedUsername = username ? username.toLowerCase().trim() : null;
+
+    if (!normalizedEmail && !normalizedUsername) {
+      throw new Error('Email or username is required');
     }
-    const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ email, passwordHash, name, phone, role });
-    return user;
+
+    const conditions = [];
+    if (normalizedEmail) conditions.push({ email: normalizedEmail });
+    if (normalizedUsername) conditions.push({ username: normalizedUsername });
+
+    const existing = await User.findOne({ where: { [Op.or]: conditions } });
+    if (existing) {
+      const err = new Error('User already exists');
+      err.status = 409;
+      throw err;
+    }
+
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    return User.create({
+      email: normalizedEmail,
+      username: normalizedUsername,
+      passwordHash,
+      name,
+      phone,
+      role,
+    });
   }
 
-  // ✅ Метод login теперь поддерживает как username, так и email
   async login(identifier, password) {
+    if (!identifier || !password) {
+      const err = new Error('Invalid credentials');
+      err.status = 401;
+      throw err;
+    }
+
+    const normalized = String(identifier).trim().toLowerCase();
+
     const user = await User.findOne({
       where: {
         [Op.or]: [
-          { username: identifier },
-          { email: identifier }
-        ]
-      }
+          { username: { [Op.iLike]: normalized } },
+          { email: { [Op.iLike]: normalized } },
+        ],
+      },
     });
+
+    // Не палим, что именно неверно — всегда одно сообщение
     if (!user) {
-      throw new Error('Invalid credentials');
+      const err = new Error('Invalid credentials');
+      err.status = 401;
+      throw err;
     }
+
     const isValid = await bcrypt.compare(password, user.passwordHash);
     if (!isValid) {
-      throw new Error('Invalid credentials');
+      const err = new Error('Invalid credentials');
+      err.status = 401;
+      throw err;
     }
+
     const tokens = this.generateTokens(user);
     return { user, tokens };
   }
@@ -44,18 +91,22 @@ class AuthService {
     return { accessToken, refreshToken };
   }
 
-  refreshAccessToken(refreshToken) {
+  async refreshAccessToken(refreshToken) {
     try {
       const decoded = jwt.verify(refreshToken, refreshSecret);
-      const user = User.findByPk(decoded.id);
+      const user = await User.findByPk(decoded.id);
       if (!user) {
-        throw new Error('User not found');
+        const err = new Error('Invalid refresh token');
+        err.status = 401;
+        throw err;
       }
       const payload = { id: user.id, email: user.email, role: user.role };
-      const newAccessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn });
-      return { accessToken: newAccessToken };
-    } catch (error) {
-      throw new Error('Invalid refresh token');
+      const accessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn });
+      return { accessToken };
+    } catch (e) {
+      const err = new Error('Invalid refresh token');
+      err.status = 401;
+      throw err;
     }
   }
 }

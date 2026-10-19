@@ -5,7 +5,10 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "clear:courses": "node src/scripts/clear-courses-and-lessons.js",
+    "clear:courses:dry": "node src/scripts/clear-courses-and-lessons.js --dry-run",
+    "clear:courses:keep-groups": "node src/scripts/clear-courses-and-lessons.js --keep-groups"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

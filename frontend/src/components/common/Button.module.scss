@@ -4,20 +4,51 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   padding: 12px 24px;
+  border: none;
   border-radius: $radius;
+  font-family: inherit;
   font-size: $font-size-base;
   font-weight: 600;
-  transition: background 0.2s, transform 0.1s;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+
   &:active {
     transform: scale(0.96);
   }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
 }
+
+/* ---------- Размеры ---------- */
+
+.small {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+}
+
+.medium {
+  /* базовый размер уже задан в .button */
+}
+
+.large {
+  padding: 16px 32px;
+  font-size: 1.125rem;
+}
+
+/* ---------- Варианты ---------- */
 
 .primary {
   background-color: $primary;
   color: #fff;
-  &:hover {
+
+  &:hover:not(:disabled) {
     background-color: darken($primary, 10%);
   }
 }
@@ -25,7 +56,8 @@
 .secondary {
   background-color: $secondary;
   color: #fff;
-  &:hover {
+
+  &:hover:not(:disabled) {
     background-color: darken($secondary, 10%);
   }
 }
@@ -34,7 +66,8 @@
   background: transparent;
   border: 2px solid $primary;
   color: $primary;
-  &:hover {
+
+  &:hover:not(:disabled) {
     background: $primary;
     color: #fff;
   }

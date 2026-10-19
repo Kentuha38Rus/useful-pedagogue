@@ -4,11 +4,14 @@ exports.register = async (req, res, next) => {
   try {
     const user = await authService.register(req.body);
     res.status(201).json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      name: user.name,
-      role: user.role,
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     });
   } catch (error) {
     next(error);
@@ -17,9 +20,19 @@ exports.register = async (req, res, next) => {
 
 exports.login = async (req, res, next) => {
   try {
-    const { identifier, password } = req.body; // теперь identifier вместо email
+    const identifier = req.body.identifier || req.body.email || req.body.username;
+    const { password } = req.body;
+
+    if (!identifier || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Identifier (email/username) and password are required',
+      });
+    }
+
     const { user, tokens } = await authService.login(identifier, password);
     res.json({
+      success: true,
       user: {
         id: user.id,
         username: user.username,
@@ -38,12 +51,13 @@ exports.refresh = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     const result = await authService.refreshAccessToken(refreshToken);
-    res.json(result);
+    res.json({ success: true, ...result });
   } catch (error) {
     next(error);
   }
 };
 
-exports.logout = (req, res, next) => {
-  res.json({ message: 'Logged out successfully' });
+exports.logout = (req, res) => {
+  // TODO: добавить refresh-token blacklist в Redis для мгновенного отзыва
+  res.json({ success: true, message: 'Logged out successfully' });
 };

@@ -9,6 +9,9 @@ const LessonEditor = ({ value = [], onChange }) => {
   const [topic, setTopic] = useState('');
 
   const handleAddLesson = () => {
+    console.log('--- LessonEditor: handleAddLesson вызван ---');
+    console.log('date:', date, 'startTime:', startTime, 'endTime:', endTime);
+
     if (!date) {
       alert('Выберите дату занятия');
       return;
@@ -23,8 +26,9 @@ const LessonEditor = ({ value = [], onChange }) => {
       endTime,
       topic: topic.trim() || null,
     };
-    onChange([...value, newLesson]);
-    // Сброс полей (дату оставляем для удобства)
+    const updated = [...value, newLesson];
+    console.log('LessonEditor: новое значение lessons =', updated);
+    onChange(updated);
     setStartTime('09:00');
     setEndTime('10:00');
     setTopic('');
@@ -38,13 +42,25 @@ const LessonEditor = ({ value = [], onChange }) => {
 
   const formatDate = (dateStr) => {
     const d = new Date(dateStr + 'T00:00:00');
-    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
   };
 
   return (
     <div style={{ marginBottom: '15px' }}>
       <h4>Занятия</h4>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '10px',
+          alignItems: 'center',
+          marginBottom: '10px',
+        }}
+      >
         <label>
           Дата:
           <input
@@ -78,22 +94,39 @@ const LessonEditor = ({ value = [], onChange }) => {
           onChange={(e) => setTopic(e.target.value)}
           style={{ flex: '1 1 200px' }}
         />
-        <Button variant="primary" size="small" onClick={handleAddLesson}>
+        {/* ⬇⬇⬇ ГЛАВНОЕ: type="button" ⬇⬇⬇ */}
+        <Button
+          type="button"
+          variant="primary"
+          size="small"
+          onClick={handleAddLesson}
+        >
           Добавить
         </Button>
       </div>
 
       {value.length === 0 ? (
-        <p style={{ color: '#888', fontStyle: 'italic' }}>Занятия не добавлены</p>
+        <p style={{ color: '#888', fontStyle: 'italic' }}>
+          Занятия не добавлены
+        </p>
       ) : (
         <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
           {value.map((lesson, index) => (
-            <li key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+            <li
+              key={index}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '5px',
+              }}
+            >
               <span>
                 {formatDate(lesson.date)} {lesson.startTime}–{lesson.endTime}
                 {lesson.topic && ` (${lesson.topic})`}
               </span>
               <Button
+                type="button"
                 variant="danger"
                 size="small"
                 onClick={() => handleRemoveLesson(index)}

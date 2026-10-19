@@ -5,11 +5,15 @@ node_modules/
 # РџРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ
 .env
 .env.*
+!.env.example
 *.env
+.env.local
+.env.*.local
 
 # Р›РѕРіРё
 *.log
 *.log.*
+logs/
 
 # РЎР±РѕСЂРєРё
 dist/
@@ -17,6 +21,20 @@ build/
 .cache/
 */dist/
 */build/
+dev-dist/
+*/dev-dist/
+
+# Р”Р°РјРїС‹ Р‘Р”
+*.dump
+*.sql.gz
+backup*.sql
+backups/
+
+# Docker
+docker-compose.override.yml
+
+# РЎРµСЂС‚РёС„РёРєР°С‚С‹
+nginx/certs/
 
 # РЎРёСЃС‚РµРјРЅС‹Рµ С„Р°Р№Р»С‹
 .DS_Store
@@ -27,6 +45,11 @@ Thumbs.db
 .idea/
 
 # РµСЂСѓРЅРґР°
+РџРѕРґСЃРєР°Р·РєР°/
 structure.txt
 *.txt
 desktop.ini
+# Рабочие заметки (не для репозитория)
+Подсказка/
+
+Подсказка/

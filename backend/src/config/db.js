@@ -1,6 +1,7 @@
 const { Sequelize } = require('sequelize');
-const dotenv = require('dotenv');
-dotenv.config();
+const logger = require('../utils/logger');
+
+const isProd = process.env.NODE_ENV === 'production';
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -8,15 +9,18 @@ const sequelize = new Sequelize(
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
+    port: Number(process.env.DB_PORT) || 5432,
     dialect: 'postgres',
-    logging: false,
+    logging: isProd ? false : (msg) => logger.debug(msg),
     pool: {
-      max: 5,
+      max: Number(process.env.DB_POOL_MAX) || 10,
       min: 0,
       acquire: 30000,
-      idle: 10000
-    }
+      idle: 10000,
+    },
+    dialectOptions: isProd && process.env.DB_SSL === 'true' ? {
+      ssl: { require: true, rejectUnauthorized: false },
+    } : undefined,
   }
 );
 
