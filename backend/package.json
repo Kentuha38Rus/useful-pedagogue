@@ -8,7 +8,12 @@
     "dev": "nodemon src/app.js",
     "clear:courses": "node src/scripts/clear-courses-and-lessons.js",
     "clear:courses:dry": "node src/scripts/clear-courses-and-lessons.js --dry-run",
-    "clear:courses:keep-groups": "node src/scripts/clear-courses-and-lessons.js --keep-groups"
+    "clear:courses:keep-groups": "node src/scripts/clear-courses-and-lessons.js --keep-groups",
+    "migrate": "sequelize-cli db:migrate",
+    "migrate:undo": "sequelize-cli db:migrate:undo",
+    "migrate:status": "sequelize-cli db:migrate:status",
+    "seed": "sequelize-cli db:seed:all",
+    "seed:undo": "sequelize-cli db:seed:undo:all"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -32,6 +37,7 @@
   },
   "devDependencies": {
     "@types/helmet": "^0.0.48",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "sequelize-cli": "^6.6.5"
   }
 }

@@ -120,11 +120,8 @@ const start = async () => {
     await sequelize.authenticate();
     logger.info('Database connection established');
 
-    // В prod — только миграции, не sync alter
-    if (!isProd) {
-      await sequelize.sync({ alter: true });
-      logger.info('Database synced (dev)');
-    }
+    // Миграции обязательны и в dev, и в prod — sync отключён.
+    // Для обновления схемы: `npm run migrate` (см. backend/README.md).
 
     server.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT} (env=${process.env.NODE_ENV})`);
