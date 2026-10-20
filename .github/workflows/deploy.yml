@@ -1,0 +1,45 @@
+name: Deploy
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy over SSH
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
+            set -e
+            cd /opt/useful-pedagogue
+
+            echo "=== Pulling ${{ github.ref_name }} ==="
+            git fetch --tags --prune
+            git checkout ${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }} || true
+
+            echo "=== Building images ==="
+            docker compose build
+
+            echo "=== Running migrations ==="
+            docker compose run --rm backend npx sequelize-cli db:migrate
+
+            echo "=== Restarting services ==="
+            docker compose up -d --remove-orphans
+
+            echo "=== Status ==="
+            docker compose ps
+
+            echo "=== Deployed ${{ github.ref_name }} ==="
+          '
