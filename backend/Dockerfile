@@ -1,4 +1,4 @@
-# ---------- Stage 1: deps ----------
+﻿# ---------- Stage 1: deps ----------
 FROM node:20-slim AS deps
 WORKDIR /app
 COPY package*.json ./
@@ -8,8 +8,10 @@ RUN npm ci --omit=dev && npm cache clean --force
 FROM node:20-slim
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/* \
- && addgroup -S app && adduser -S app -G app
+RUN apt-get update && apt-get install -y wget \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system app \
+ && useradd --system --gid app app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --chown=app:app . .
