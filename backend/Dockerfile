@@ -1,14 +1,14 @@
 # ---------- Stage 1: deps ----------
-FROM node:18-alpine AS deps
+FROM node:20-slim AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # ---------- Stage 2: runtime ----------
-FROM node:18-alpine
+FROM node:20-slim
 WORKDIR /app
 
-RUN apk add --no-cache wget \
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/* \
  && addgroup -S app && adduser -S app -G app
 
 COPY --from=deps /app/node_modules ./node_modules
