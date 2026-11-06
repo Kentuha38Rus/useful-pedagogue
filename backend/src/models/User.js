@@ -7,6 +7,11 @@ module.exports = (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: true,   // NULL разрешён ТОЛЬКО для role='platform_admin'
+      // field по умолчанию = 'tenantId' — совпадает с колонкой в миграции
+    },
     username: {
       type: DataTypes.STRING,
       allowNull: true,   // теперь может быть null (если регистрируются только по email)
@@ -18,7 +23,7 @@ module.exports = (sequelize) => {
     email: {
       type: DataTypes.STRING,
       allowNull: true,
-      unique: true,
+      unique: true,      // глобально уникален (по решению)
       validate: { isEmail: true },
     },
     passwordHash: {
@@ -34,7 +39,7 @@ module.exports = (sequelize) => {
       allowNull: true,
     },
     role: {
-      type: DataTypes.ENUM('admin', 'teacher', 'parent'),
+      type: DataTypes.ENUM('admin', 'teacher', 'parent', 'platform_admin'),
       allowNull: false,
       defaultValue: 'parent',
     },

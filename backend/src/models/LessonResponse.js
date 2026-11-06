@@ -7,6 +7,10 @@ module.exports = (sequelize) => {
       primaryKey: true,
       autoIncrement: true,
     },
+    tenant_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     lesson_id: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -22,7 +26,6 @@ module.exports = (sequelize) => {
       allowNull: false,
       references: { model: 'Users', key: 'id' },
     },
-    // 👇 ЭТОГО ПОЛЯ НЕ ХВАТАЕТ
     admin_id: {
       type: DataTypes.UUID,
       allowNull: true,

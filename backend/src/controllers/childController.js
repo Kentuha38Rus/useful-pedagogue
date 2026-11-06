@@ -1,25 +1,27 @@
 const { Child, Group, Lesson, User } = require('../models');
 const { Op } = require('sequelize');
+const { requireTenant } = require('../utils/helpers');
 
 // GET /children
-// parent  → только свои дети (с группами и занятиями каждой группы)
-// teacher → дети из групп, где он teacher
-// admin   → все дети
+// parent  → только свои дети (в своём тенанте)
+// teacher → дети из групп, где он teacher (в своём тенанте)
+// admin   → все дети в своём тенанте
 exports.getChildren = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const user = req.user;
-    let where = {};
+
+    const where = { tenantId: tid };
     let groupWhere;
     let groupRequired = false;
 
     if (user.role === 'parent') {
       where.parentId = user.id;
     } else if (user.role === 'teacher') {
-      groupWhere = { teacherId: user.id };
+      groupWhere = { teacherId: user.id, tenantId: tid };
       groupRequired = true;
     }
 
-    // 1. Получаем детей с их группами (без lessons)
     const children = await Child.findAll({
       where,
       include: [
@@ -46,23 +48,23 @@ exports.getChildren = async (req, res, next) => {
       order: [['name', 'ASC']],
     });
 
-    // 2. Собираем все уникальные groupId
     const groupIds = new Set();
     children.forEach((child) => {
       (child.groups || []).forEach((g) => groupIds.add(g.id));
     });
 
-    // 3. Отдельным запросом грузим занятия для этих групп
     let lessons = [];
     if (groupIds.size > 0) {
       lessons = await Lesson.findAll({
-        where: { groupId: { [Op.in]: Array.from(groupIds) } },
+        where: {
+          tenantId: tid,
+          groupId: { [Op.in]: Array.from(groupIds) },
+        },
         attributes: ['id', 'date', 'startTime', 'endTime', 'topic', 'groupId'],
         order: [['date', 'ASC'], ['startTime', 'ASC']],
       });
     }
 
-    // 4. Раскладываем занятия по группам
     const lessonsByGroup = {};
     lessons.forEach((l) => {
       if (!lessonsByGroup[l.groupId]) lessonsByGroup[l.groupId] = [];
@@ -75,7 +77,6 @@ exports.getChildren = async (req, res, next) => {
       });
     });
 
-    // 5. Приклеиваем lessons к группам в ответе
     const result = children.map((child) => {
       const plain = child.toJSON();
       plain.groups = (plain.groups || []).map((g) => ({
@@ -94,10 +95,12 @@ exports.getChildren = async (req, res, next) => {
 // GET /children/:id
 exports.getChildById = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const { id } = req.params;
     const user = req.user;
 
-    const child = await Child.findByPk(id, {
+    const child = await Child.findOne({
+      where: { id, tenantId: tid },
       include: [
         {
           model: Group,
@@ -127,12 +130,11 @@ exports.getChildById = async (req, res, next) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    // Подгружаем занятия отдельно
     const groupIds = (child.groups || []).map((g) => g.id);
     let lessonsByGroup = {};
     if (groupIds.length > 0) {
       const lessons = await Lesson.findAll({
-        where: { groupId: { [Op.in]: groupIds } },
+        where: { tenantId: tid, groupId: { [Op.in]: groupIds } },
         attributes: ['id', 'date', 'startTime', 'endTime', 'topic', 'groupId'],
         order: [['date', 'ASC'], ['startTime', 'ASC']],
       });
@@ -163,17 +165,25 @@ exports.getChildById = async (req, res, next) => {
 // POST /children
 exports.createChild = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const user = req.user;
     const { name, birthDate } = req.body;
 
     let parentId = user.id;
     if (user.role === 'admin' && req.body.parentId) {
+      // Проверяем, что родитель в этом же тенанте
+      const parent = await User.findOne({
+        where: { id: req.body.parentId, tenantId: tid },
+      });
+      if (!parent) {
+        return res.status(404).json({ message: 'Parent not found' });
+      }
       parentId = req.body.parentId;
     } else if (user.role !== 'parent') {
       return res.status(400).json({ message: 'Parent ID required for admin' });
     }
 
-    const child = await Child.create({ name, birthDate, parentId });
+    const child = await Child.create({ tenantId: tid, name, birthDate, parentId });
     res.status(201).json(child);
   } catch (error) {
     next(error);
@@ -183,10 +193,11 @@ exports.createChild = async (req, res, next) => {
 // PATCH /children/:id
 exports.updateChild = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const { id } = req.params;
     const user = req.user;
 
-    const child = await Child.findByPk(id);
+    const child = await Child.findOne({ where: { id, tenantId: tid } });
     if (!child) return res.status(404).json({ message: 'Child not found' });
 
     if (user.role === 'parent' && child.parentId !== user.id) {
@@ -204,10 +215,11 @@ exports.updateChild = async (req, res, next) => {
 // DELETE /children/:id
 exports.deleteChild = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const { id } = req.params;
     const user = req.user;
 
-    const child = await Child.findByPk(id);
+    const child = await Child.findOne({ where: { id, tenantId: tid } });
     if (!child) return res.status(404).json({ message: 'Child not found' });
 
     if (user.role === 'parent' && child.parentId !== user.id) {

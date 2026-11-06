@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Link, useNavigate } from 'react-router-dom';
-import { login } from '../../store/slices/authSlice';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { login, logout } from '../../store/slices/authSlice';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Card from '../../components/common/Card';
@@ -12,21 +12,31 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loginLoading, error, isAuthenticated } = useSelector((state) => state.auth);
+  const [searchParams] = useSearchParams();
+  const tenantSlug = searchParams.get('tenant');
+
+  const { loginLoading, error, isAuthenticated, isPlatformAdmin } = useSelector(
+    (state) => state.auth
+  );
+
+  // На /login сбрасываем старую сессию, чтобы не «залипал» предыдущий аккаунт
+  useEffect(() => {
+    dispatch(logout());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/app', { replace: true });
+      navigate(isPlatformAdmin ? '/platform' : '/app', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isPlatformAdmin, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await dispatch(login({ identifier, password })).unwrap();
-      navigate('/app');
-    } catch (err) {
-      // ошибка уже сохранена в state.error
+    } catch {
+      // ошибка уже в state.error
     }
   };
 
@@ -34,6 +44,11 @@ const LoginPage = () => {
     <div className={styles.authPage}>
       <Card className={styles.authCard}>
         <h2>Вход</h2>
+        {tenantSlug && (
+          <p className={styles.hint}>
+            Школа: <strong>{tenantSlug}</strong>
+          </p>
+        )}
         <form onSubmit={handleSubmit}>
           <Input
             label="Логин или Email"
@@ -55,7 +70,7 @@ const LoginPage = () => {
           </Button>
         </form>
         <p className={styles.link}>
-          Нет аккаунта? <Link to="/register">Зарегистрироваться</Link>
+          Забыли пароль? Обратитесь к администратору вашего центра.
         </p>
       </Card>
     </div>

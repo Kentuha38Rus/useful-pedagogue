@@ -3,24 +3,24 @@
 .header {
   display: flex;
   align-items: center;
-  padding: 4px 16px;        // было 8px – уменьшили
+  padding: 4px 16px;
   background: $primary;
   color: #fff;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 48px;            // было 56px – уменьшили
+  height: 48px;
   z-index: 100;
 
   .logo {
-    width: 50px;           // было 32px
+    width: 50px;
     height: 50px;
-    margin-right: 18px;     // было 10px
+    margin-right: 18px;
   }
 
   .title {
-    font-size: 18px;       // было 20px
+    font-size: 18px;
     font-weight: 600;
     flex: 1;
     @media (max-width: $breakpoint-mobile) {
@@ -31,11 +31,70 @@
     }
   }
 
+  .platformLink {
+    margin-left: 12px;
+    margin-right: 12px;
+    padding: 4px 10px;
+    font-size: 13px;
+    color: #fff;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    transition: background 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      text-decoration: none;
+    }
+  }
+
   .userName {
     font-size: $font-size-small;
     opacity: 0.9;
     @media (max-width: $breakpoint-mobile) {
       display: none;
     }
+  }
+}
+
+// Плашка «Режим имперсонации» — рендерится под фиксированным Header.
+// Дополнительного сдвига контента не делаем: если он важен — App.css
+// может учитывать её наличие через класс на body. Для MVP — просто
+// накладывается поверх, но т.к. Header занимает 48px сверху, плашка
+// будет перекрывать первые 36px контента. Чтобы этого избежать,
+// сделаем её sticky внутри main (см. App.jsx — она выведена рядом с Header).
+.impersonationBanner {
+  position: fixed;
+  top: 48px;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: #b84b0b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 13px;
+  z-index: 99;
+  padding: 0 16px;
+
+  strong {
+    font-weight: 600;
+  }
+}
+
+.exitImpersonation {
+  background: #fff;
+  color: #b84b0b;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: #fdece2;
   }
 }

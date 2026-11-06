@@ -7,6 +7,10 @@ module.exports = (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     status: {
       type: DataTypes.ENUM('present', 'absent', 'late'),
       allowNull: false,

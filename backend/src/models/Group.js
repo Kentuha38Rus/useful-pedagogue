@@ -7,6 +7,10 @@ module.exports = (sequelize) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -22,7 +26,7 @@ module.exports = (sequelize) => {
     },
     courseId: {
       type: DataTypes.UUID,
-      allowNull: true,    // временно разрешаем NULL для совместимости
+      allowNull: true,
     },
     teacherId: {
       type: DataTypes.UUID,

@@ -1,5 +1,6 @@
 const { Sequelize } = require('sequelize');
 const logger = require('../utils/logger');
+const setupRls = require('./rls');
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -23,5 +24,6 @@ const sequelize = new Sequelize(
     } : undefined,
   }
 );
+setupRls(sequelize);
 
 module.exports = sequelize;

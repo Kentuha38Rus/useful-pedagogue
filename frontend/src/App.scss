@@ -30,3 +30,6 @@
     padding-bottom: 86px; /* BottomNav (52) + отступ (14) + зазор (20) */
   }
 }
+.app--impersonation .app-main {
+  padding-top: calc(48px + 36px); // Header + плашка имперсонации
+}

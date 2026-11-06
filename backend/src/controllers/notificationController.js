@@ -15,14 +15,12 @@ const {
 const notificationService = require('../services/notificationService');
 const ChatService = require('../services/chatService');
 const { accessSecret } = require('../config/jwt');
+const { requireTenant } = require('../utils/helpers');
 
 const RESPONSE_TOKEN_TTL = '30m';
-const LESSON_NOTIFY_COOLDOWN_MS = 60 * 1000; // 60 сек между отправками
+const LESSON_NOTIFY_COOLDOWN_MS = 60 * 1000;
 
-// Cooldown на уровне занятия: lessonId -> timestamp
-const lessonNotifyCooldown = new Map();
-
-// =============== Утилиты ===============
+const lessonNotifyCooldown = new Map(); // `${tenantId}:${lessonId}` -> timestamp
 
 function signResponseToken(responseId) {
   return jwt.sign(
@@ -43,10 +41,6 @@ function formatTime(t) {
   return t ? String(t).slice(0, 5) : '';
 }
 
-/**
- * Применяем ответ родителя.
- * При 'yes' создаём сообщение от родителя в чате с админом.
- */
 async function applyLessonResponse(responseId, status, io) {
   const response = await LessonResponse.findByPk(responseId, {
     include: [
@@ -66,12 +60,11 @@ async function applyLessonResponse(responseId, status, io) {
     throw err;
   }
 
-  if (response.status !== 'pending') {
-    return response;
-  }
+  if (response.status !== 'pending') return response;
 
   await response.update({ status, responded_at: new Date() });
 
+  const tid = response.tenant_id;
   const adminId = response.admin_id;
   const parentId = response.parent_id;
 
@@ -90,7 +83,7 @@ async function applyLessonResponse(responseId, status, io) {
   };
 
   if (io) {
-    io.to('role:admin').emit('lesson_response_update', event);
+    io.to(`tenant:${tid}:role:admin`).emit('lesson_response_update', event);
   }
 
   if (status === 'yes' && adminId) {
@@ -100,9 +93,7 @@ async function applyLessonResponse(responseId, status, io) {
       const timeRange =
         `${formatTime(response.lesson?.startTime)}–` +
         `${formatTime(response.lesson?.endTime)}`;
-      const groupName = response.lesson?.group?.name
-        ? ` · ${response.lesson.group.name}`
-        : '';
+      const groupName = response.lesson?.group?.name ? ` · ${response.lesson.group.name}` : '';
 
       const content =
         `✅ Подтверждаю участие\n` +
@@ -111,20 +102,16 @@ async function applyLessonResponse(responseId, status, io) {
       const chatId = ChatService.getChatId(parentId, adminId);
 
       const message = await Message.create({
+        tenant_id: tid,
         chat_id: chatId,
         sender_id: parentId,
         content,
         is_system: false,
       });
 
-      const messageWithSender = await Message.findByPk(message.id, {
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'name', 'role'],
-          },
-        ],
+      const messageWithSender = await Message.findOne({
+        where: { id: message.id, tenant_id: tid },
+        include: [{ model: User, as: 'sender', attributes: ['id', 'name', 'role'] }],
       });
 
       if (io) {
@@ -140,32 +127,23 @@ async function applyLessonResponse(responseId, status, io) {
   return response;
 }
 
-/**
- * Обработка списка занятий:
- *  - родителям: LessonResponse (pending) + push с кнопками + chat в admin↔parent
- *  - преподавателю: push (информационный, без кнопок) + chat в admin↔teacher
- *
- * Возвращает агрегированную статистику.
- */
-async function processLessonRemindersForLessons(lessons, adminId, io) {
+async function processLessonRemindersForLessons(lessons, adminId, io, tenantId) {
   const remindersByParent = new Map();
-  const teacherItems = []; // [{ teacher, lesson, groupName, timeRange }]
-  let sentPushCount = 0;   // успешных push родителям
-  let totalCount = 0;      // всего обработано пар (ребёнок, занятие)
-  let teacherPushCount = 0; // успешных push учителям
+  const teacherItems = [];
+  let sentPushCount = 0;
+  let totalCount = 0;
+  let teacherPushCount = 0;
 
   for (const lesson of lessons) {
     if (!lesson.group) continue;
 
     const groupName = lesson.group.name || '';
-    const timeRange =
-      `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
+    const timeRange = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
 
-    // ---------------- Учитель ----------------
     const teacher = lesson.group.teacher;
     if (teacher && String(teacher.id) !== String(adminId)) {
       const teacherSubs = await PushSubscription.findAll({
-        where: { user_id: teacher.id },
+        where: { user_id: teacher.id, tenant_id: tenantId },
       });
 
       if (teacherSubs.length > 0) {
@@ -182,21 +160,17 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
             lessonId: lesson.id,
             url: 'app/schedule',
           },
-          // Формат B: без actions
         };
-
-        const teacherResults =
-          await notificationService.sendPushNotifications(
-            teacherSubs,
-            teacherPayload
-          );
+        const teacherResults = await notificationService.sendPushNotifications(
+          teacherSubs,
+          teacherPayload
+        );
         if (teacherResults.some((r) => r.success)) teacherPushCount += 1;
       }
 
       teacherItems.push({ teacher, lesson, groupName, timeRange });
     }
 
-    // ---------------- Родители ----------------
     if (!lesson.group.children) continue;
 
     for (const child of lesson.group.children) {
@@ -208,6 +182,7 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
       const [response, created] = await LessonResponse.findOrCreate({
         where: { lesson_id: lesson.id, child_id: child.id },
         defaults: {
+          tenant_id: tenantId,
           parent_id: parent.id,
           admin_id: adminId,
           status: 'pending',
@@ -222,10 +197,7 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
       }
 
       if (!created) {
-        await response.update({
-          notified_at: new Date(),
-          timeout_notified: false,
-        });
+        await response.update({ notified_at: new Date(), timeout_notified: false });
       }
 
       if (!remindersByParent.has(parent.id)) {
@@ -234,7 +206,7 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
       remindersByParent.get(parent.id).items.push({ lesson, child });
 
       const subscriptions = await PushSubscription.findAll({
-        where: { user_id: parent.id },
+        where: { user_id: parent.id, tenant_id: tenantId },
       });
       if (!subscriptions.length) continue;
 
@@ -264,30 +236,22 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
         ],
       };
 
-      const results = await notificationService.sendPushNotifications(
-        subscriptions,
-        payload
-      );
+      const results = await notificationService.sendPushNotifications(subscriptions, payload);
       if (results.some((r) => r.success)) sentPushCount += 1;
     }
   }
 
-  // ============ Chat родителям ============
   let chatCreated = 0;
   for (const [parentId, { items }] of remindersByParent) {
     try {
       const sorted = items
         .slice()
         .sort((a, b) =>
-          String(a.lesson.startTime).localeCompare(
-            String(b.lesson.startTime)
-          )
+          String(a.lesson.startTime).localeCompare(String(b.lesson.startTime))
         );
 
       const lines = sorted.map(({ lesson, child }) => {
-        const time = `${formatTime(lesson.startTime)}–${formatTime(
-          lesson.endTime
-        )}`;
+        const time = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
         const groupName = lesson.group?.name ? ` · ${lesson.group.name}` : '';
         return `• ${child.name} — ${time}${groupName}`;
       });
@@ -302,20 +266,16 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
       const chatId = ChatService.getChatId(adminId, parentId);
 
       const message = await Message.create({
+        tenant_id: tenantId,
         chat_id: chatId,
         sender_id: adminId,
         content,
         is_system: false,
       });
 
-      const messageWithSender = await Message.findByPk(message.id, {
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'name', 'role'],
-          },
-        ],
+      const messageWithSender = await Message.findOne({
+        where: { id: message.id, tenant_id: tenantId },
+        include: [{ model: User, as: 'sender', attributes: ['id', 'name', 'role'] }],
       });
 
       if (io) {
@@ -325,14 +285,10 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
 
       chatCreated += 1;
     } catch (e) {
-      console.error(
-        `[lesson-reminders] chat message error for parent ${parentId}:`,
-        e.message
-      );
+      console.error(`[lesson-reminders] chat message error for parent ${parentId}:`, e.message);
     }
   }
 
-  // ============ Chat учителям ============
   let chatCreatedTeachers = 0;
   for (const item of teacherItems) {
     try {
@@ -344,20 +300,16 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
         `${formatDate(item.lesson.date)}, ${item.timeRange}`;
 
       const message = await Message.create({
+        tenant_id: tenantId,
         chat_id: chatId,
         sender_id: adminId,
         content,
         is_system: false,
       });
 
-      const messageWithSender = await Message.findByPk(message.id, {
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'name', 'role'],
-          },
-        ],
+      const messageWithSender = await Message.findOne({
+        where: { id: message.id, tenant_id: tenantId },
+        include: [{ model: User, as: 'sender', attributes: ['id', 'name', 'role'] }],
       });
 
       if (io) {
@@ -367,30 +319,22 @@ async function processLessonRemindersForLessons(lessons, adminId, io) {
 
       chatCreatedTeachers += 1;
     } catch (e) {
-      console.error(
-        `[lesson-reminders] chat to teacher ${item.teacher.id} error:`,
-        e.message
-      );
+      console.error(`[lesson-reminders] chat to teacher ${item.teacher.id} error:`, e.message);
     }
   }
 
-  return {
-    sentPushCount,
-    teacherPushCount,
-    totalCount,
-    chatCreated,
-    chatCreatedTeachers,
-  };
+  return { sentPushCount, teacherPushCount, totalCount, chatCreated, chatCreatedTeachers };
 }
 
 // =============== Базовые методы ===============
 
 exports.getNotifications = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const userId = req.user.id;
     const { limit = 20, offset = 0 } = req.query;
     const notifications = await Notification.findAndCountAll({
-      where: { user_id: userId },
+      where: { user_id: userId, tenant_id: tid },
       order: [['created_at', 'DESC']],
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
@@ -408,10 +352,11 @@ exports.getNotifications = async (req, res, next) => {
 
 exports.markNotificationAsRead = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const { id } = req.params;
     const userId = req.user.id;
     const notification = await Notification.findOne({
-      where: { id, user_id: userId },
+      where: { id, user_id: userId, tenant_id: tid },
     });
     if (!notification) {
       return res.status(404).json({ error: 'Notification not found' });
@@ -425,6 +370,7 @@ exports.markNotificationAsRead = async (req, res, next) => {
 
 exports.sendPush = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -434,15 +380,16 @@ exports.sendPush = async (req, res, next) => {
       return res.status(400).json({ error: 'title and body are required' });
     }
 
-    const where = {};
+    const where = { tenantId: tid };
     if (role) where.role = role;
     const users = await User.findAll({ where, attributes: ['id'] });
     const userIds = users.map((u) => u.id);
 
     const payload = { title, body, data: data || {} };
-    const results = await notificationService.sendToUsers(userIds, payload);
+    const results = await notificationService.sendToUsers(userIds, tid, payload);
 
     const notificationsToCreate = userIds.map((userId) => ({
+      tenant_id: tid,
       user_id: userId,
       title,
       body,
@@ -459,15 +406,13 @@ exports.sendPush = async (req, res, next) => {
 
 exports.saveSubscription = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const userId = req.user.id;
     const { subscription } = req.body;
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return res.status(400).json({ error: 'Invalid subscription data' });
     }
-    const saved = await notificationService.saveSubscription(
-      userId,
-      subscription
-    );
+    const saved = await notificationService.saveSubscription(userId, tid, subscription);
     res.status(201).json(saved);
   } catch (error) {
     next(error);
@@ -478,6 +423,7 @@ exports.saveSubscription = async (req, res, next) => {
 
 exports.sendLessonRemindersForLesson = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -490,38 +436,30 @@ exports.sendLessonRemindersForLesson = async (req, res, next) => {
       return res.status(400).json({ error: 'lessonId is required' });
     }
 
+    const cooldownKey = `${tid}:${lessonId}`;
     const now = Date.now();
-    const lastAt = lessonNotifyCooldown.get(lessonId) || 0;
+    const lastAt = lessonNotifyCooldown.get(cooldownKey) || 0;
     if (lastAt && now - lastAt < LESSON_NOTIFY_COOLDOWN_MS) {
-      const retryAfterSec = Math.ceil(
-        (LESSON_NOTIFY_COOLDOWN_MS - (now - lastAt)) / 1000
-      );
+      const retryAfterSec = Math.ceil((LESSON_NOTIFY_COOLDOWN_MS - (now - lastAt)) / 1000);
       return res.status(429).json({
         error: `Повторная отправка возможна через ${retryAfterSec} сек.`,
         retryAfterSec,
       });
     }
 
-    const lesson = await Lesson.findByPk(lessonId, {
+    const lesson = await Lesson.findOne({
+      where: { id: lessonId, tenantId: tid },
       include: [
         {
           model: Group,
           as: 'group',
           include: [
-            {
-              model: User,
-              as: 'teacher',
-              attributes: ['id', 'name', 'email', 'role'],
-            },
+            { model: User, as: 'teacher', attributes: ['id', 'name', 'email', 'role'] },
             {
               model: Child,
               as: 'children',
               include: [
-                {
-                  model: User,
-                  as: 'parent',
-                  attributes: ['id', 'name', 'email', 'role'],
-                },
+                { model: User, as: 'parent', attributes: ['id', 'name', 'email', 'role'] },
               ],
             },
           ],
@@ -534,14 +472,10 @@ exports.sendLessonRemindersForLesson = async (req, res, next) => {
     }
 
     const {
-      sentPushCount,
-      teacherPushCount,
-      totalCount,
-      chatCreated,
-      chatCreatedTeachers,
-    } = await processLessonRemindersForLessons([lesson], adminId, io);
+      sentPushCount, teacherPushCount, totalCount, chatCreated, chatCreatedTeachers,
+    } = await processLessonRemindersForLessons([lesson], adminId, io, tid);
 
-    lessonNotifyCooldown.set(lessonId, now);
+    lessonNotifyCooldown.set(cooldownKey, now);
 
     res.json({
       success: true,
@@ -563,6 +497,7 @@ exports.sendLessonRemindersForLesson = async (req, res, next) => {
 
 exports.sendLessonRemindersForToday = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
@@ -572,26 +507,18 @@ exports.sendLessonRemindersForToday = async (req, res, next) => {
     const dateStr = req.body.date || new Date().toISOString().slice(0, 10);
 
     const lessons = await Lesson.findAll({
-      where: { date: dateStr },
+      where: { tenantId: tid, date: dateStr },
       include: [
         {
           model: Group,
           as: 'group',
           include: [
-            {
-              model: User,
-              as: 'teacher',
-              attributes: ['id', 'name', 'email', 'role'],
-            },
+            { model: User, as: 'teacher', attributes: ['id', 'name', 'email', 'role'] },
             {
               model: Child,
               as: 'children',
               include: [
-                {
-                  model: User,
-                  as: 'parent',
-                  attributes: ['id', 'name', 'email', 'role'],
-                },
+                { model: User, as: 'parent', attributes: ['id', 'name', 'email', 'role'] },
               ],
             },
           ],
@@ -613,12 +540,8 @@ exports.sendLessonRemindersForToday = async (req, res, next) => {
     }
 
     const {
-      sentPushCount,
-      teacherPushCount,
-      totalCount,
-      chatCreated,
-      chatCreatedTeachers,
-    } = await processLessonRemindersForLessons(lessons, adminId, io);
+      sentPushCount, teacherPushCount, totalCount, chatCreated, chatCreatedTeachers,
+    } = await processLessonRemindersForLessons(lessons, adminId, io, tid);
 
     res.json({
       success: true,
@@ -642,9 +565,7 @@ exports.respondToLessonReminderByToken = async (req, res, next) => {
   try {
     const { token, status } = req.body || {};
     if (!token || !['yes', 'no'].includes(status)) {
-      return res
-        .status(400)
-        .json({ error: 'token and status (yes|no) required' });
+      return res.status(400).json({ error: 'token and status (yes|no) required' });
     }
 
     let decoded;
@@ -667,13 +588,16 @@ exports.respondToLessonReminderByToken = async (req, res, next) => {
 
 exports.respondToLessonReminder = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const { id } = req.params;
     const { status } = req.body || {};
     if (!['yes', 'no'].includes(status)) {
       return res.status(400).json({ error: 'status must be yes or no' });
     }
 
-    const response = await LessonResponse.findByPk(id);
+    const response = await LessonResponse.findOne({
+      where: { id, tenant_id: tid },
+    });
     if (!response) {
       return res.status(404).json({ error: 'Response not found' });
     }
@@ -694,6 +618,7 @@ exports.respondToLessonReminder = async (req, res, next) => {
 
 exports.getLessonResponses = async (req, res, next) => {
   try {
+    const tid = requireTenant(req);
     const { date } = req.query;
 
     const include = [
@@ -707,11 +632,10 @@ exports.getLessonResponses = async (req, res, next) => {
       },
     ];
 
-    if (date) {
-      include[2].where = { date };
-    }
+    if (date) include[2].where = { date };
 
     const responses = await LessonResponse.findAll({
+      where: { tenant_id: tid },
       include,
       order: [
         [{ model: Lesson, as: 'lesson' }, 'date', 'ASC'],

@@ -12,14 +12,16 @@ const UsersPage = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [search, setSearch] = useState('');
 
-  const [showCreateTeacher, setShowCreateTeacher] = useState(false);
-  const [newTeacher, setNewTeacher] = useState({
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUser, setNewUser] = useState({
     username: '',
     email: '',
     password: '',
     name: '',
     phone: '',
+    role: 'teacher',
   });
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     dispatch(fetchUsers({ page, role: roleFilter, search }));
@@ -42,58 +44,88 @@ const UsersPage = () => {
     if (page > 1) setPage(page - 1);
   };
 
-  const handleCreateTeacher = async (e) => {
+  const handleCreateUser = async (e) => {
     e.preventDefault();
-    await dispatch(createUser({ ...newTeacher, role: 'teacher' }));
-    setShowCreateTeacher(false);
-    setNewTeacher({ username: '', email: '', password: '', name: '', phone: '' });
-    dispatch(fetchUsers({ page, role: roleFilter, search }));
+    setFormError('');
+    
+    // Дополнительная проверка на клиенте
+    if (newUser.username.length < 3) {
+      setFormError('Логин должен быть не менее 3 символов');
+      return;
+    }
+
+    try {
+      await dispatch(createUser(newUser)).unwrap();
+      setShowCreateUser(false);
+      setNewUser({ username: '', email: '', password: '', name: '', phone: '', role: 'teacher' });
+      dispatch(fetchUsers({ page, role: roleFilter, search }));
+    } catch (err) {
+      setFormError(typeof err === 'string' ? err : 'Ошибка при создании пользователя');
+    }
   };
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Пользователи</h1>
-        <Button onClick={() => setShowCreateTeacher(true)}>+ Создать преподавателя</Button>
+        <Button onClick={() => setShowCreateUser(true)}>+ Создать пользователя</Button>
       </div>
 
-      {showCreateTeacher && (
+      {showCreateUser && (
         <Card style={{ marginBottom: '20px', padding: '20px', border: '1px solid #ccc' }}>
-          <h3>Создать преподавателя</h3>
-          <form onSubmit={handleCreateTeacher}>
+          <h3>Создать пользователя</h3>
+          <form onSubmit={handleCreateUser}>
+            <div style={{ marginBottom: '10px' }}>
+              <label>Роль</label>
+              <select
+                value={newUser.role}
+                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                style={{ display: 'block', width: '100%', padding: '8px', marginTop: '4px' }}
+              >
+                <option value="teacher">Преподаватель</option>
+                <option value="parent">Родитель</option>
+                <option value="admin">Администратор</option>
+              </select>
+            </div>
+
             <Input
-              placeholder="Логин"
-              value={newTeacher.username}
-              onChange={(e) => setNewTeacher({ ...newTeacher, username: e.target.value })}
+              placeholder="Логин (от 3 символов)"
+              value={newUser.username}
+              onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+              minLength={3}
+              maxLength={50}
               required
             />
             <Input
               placeholder="Email (необязательно)"
               type="email"
-              value={newTeacher.email}
-              onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
+              value={newUser.email}
+              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
             />
             <Input
               placeholder="Пароль"
               type="password"
-              value={newTeacher.password}
-              onChange={(e) => setNewTeacher({ ...newTeacher, password: e.target.value })}
+              value={newUser.password}
+              onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
               required
             />
             <Input
               placeholder="Полное имя"
-              value={newTeacher.name}
-              onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
+              value={newUser.name}
+              onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
               required
             />
             <Input
               placeholder="Телефон (необязательно)"
-              value={newTeacher.phone}
-              onChange={(e) => setNewTeacher({ ...newTeacher, phone: e.target.value })}
+              value={newUser.phone}
+              onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
             />
+
+            {formError && <div style={{ color: 'red', marginBottom: '10px' }}>{formError}</div>}
+
             <div style={{ display: 'flex', gap: '10px' }}>
               <Button type="submit">Сохранить</Button>
-              <Button variant="default" onClick={() => setShowCreateTeacher(false)}>Отмена</Button>
+              <Button variant="default" onClick={() => setShowCreateUser(false)}>Отмена</Button>
             </div>
           </form>
         </Card>

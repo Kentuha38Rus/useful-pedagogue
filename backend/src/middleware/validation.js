@@ -9,12 +9,12 @@ const lessonSchema = Joi.object({
 
 const schemas = {
   register: Joi.object({
+    tenantSlug: Joi.string().max(63).required(),
     username: Joi.string().alphanum().min(3).max(50).optional(),
     password: Joi.string().min(8).max(128).required(),
     name: Joi.string().min(1).max(120).required(),
     email: Joi.string().email().optional(),
     phone: Joi.string().max(30).optional(),
-    // role НЕ принимаем — публичная регистрация всегда parent
   }).or('username', 'email'),
 
   login: Joi.object({
@@ -42,7 +42,6 @@ const schemas = {
   createChild: Joi.object({
     name: Joi.string().min(1).max(120).required(),
     birthDate: Joi.date().iso().optional(),
-    // parentId НЕ принимаем — берётся из JWT в контроллере
   }),
 
   updateChild: Joi.object({

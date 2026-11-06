@@ -7,6 +7,10 @@ module.exports = (sequelize) => {
       primaryKey: true,
       autoIncrement: true,
     },
+    tenant_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     chat_id: {
       type: DataTypes.STRING,
       allowNull: false,

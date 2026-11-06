@@ -2,10 +2,14 @@ const jwt = require('jsonwebtoken');
 const authService = require('../services/authService');
 const redis = require('../config/redis');
 const { refreshSecret } = require('../config/jwt');
+const { Tenant } = require('../models');
 
 exports.register = async (req, res, next) => {
   try {
     const user = await authService.register(req.body);
+    const tenant = await Tenant.findByPk(user.tenantId, {
+      attributes: ['id', 'slug', 'name'],
+    });
     res.status(201).json({
       success: true,
       user: {
@@ -14,6 +18,9 @@ exports.register = async (req, res, next) => {
         email: user.email,
         name: user.name,
         role: user.role,
+        tenantId: user.tenantId,
+        tenantSlug: tenant ? tenant.slug : null,
+        tenantName: tenant ? tenant.name : null,
       },
     });
   } catch (error) {
@@ -42,6 +49,10 @@ exports.login = async (req, res, next) => {
         email: user.email,
         name: user.name,
         role: user.role,
+        tenantId: user.tenantId,
+        tenantSlug: user.tenant ? user.tenant.slug : null,
+        tenantName: user.tenant ? user.tenant.name : null,
+        isPlatformAdmin: user.role === 'platform_admin',
       },
       ...tokens,
     });
@@ -69,12 +80,10 @@ exports.logout = async (req, res, next) => {
         const decoded = jwt.verify(refreshToken, refreshSecret);
         const ttl = Math.max(0, (decoded.exp || 0) - Math.floor(Date.now() / 1000));
         if (ttl > 0) {
-          // Ключ = префикс + сам токен, значение не важно, TTL = оставшийся срок
           await redis.set(`bl:${refreshToken}`, '1', { EX: ttl });
         }
       } catch (_) {
-        // Невалидный/истёкший токен — всё равно отвечаем успехом,
-        // чтобы клиент не пытался ретраить logout бесконечно.
+        // Игнорируем — всегда отвечаем успехом
       }
     }
 

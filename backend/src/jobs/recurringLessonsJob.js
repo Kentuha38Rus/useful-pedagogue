@@ -5,16 +5,9 @@ const { withLock } = require('../utils/distributedLock');
 
 const WEEKS_AHEAD = 4;
 const DAY_NAMES = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
+  'sunday', 'monday', 'tuesday', 'wednesday',
+  'thursday', 'friday', 'saturday',
 ];
-
-// ---------- Утилиты ----------
 
 function formatDateStr(d) {
   const yyyy = d.getFullYear();
@@ -24,24 +17,15 @@ function formatDateStr(d) {
 }
 
 function normalizeTime(t) {
-  // '9:00' → '09:00:00', '10:30' → '10:30:00'
   const [hh, mm] = String(t).split(':');
   return `${String(hh).padStart(2, '0')}:${String(mm || '00').padStart(2, '0')}:00`;
 }
 
-/**
- * Парсит group.schedule (JSONB) в нормализованный объект
- * { monday: [{ start: '10:00:00', end: '11:00:00' }], ... }
- */
 function parseSchedule(raw) {
   if (!raw) return null;
   let obj = raw;
   if (typeof raw === 'string') {
-    try {
-      obj = JSON.parse(raw);
-    } catch {
-      return null;
-    }
+    try { obj = JSON.parse(raw); } catch { return null; }
   }
   if (!obj || typeof obj !== 'object') return null;
 
@@ -61,10 +45,6 @@ function parseSchedule(raw) {
   return result;
 }
 
-/**
- * Генерирует занятия для одной группы на N недель вперёд.
- * Пропускает прошлые времена сегодня. Идемпотентно.
- */
 async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
   const schedule = parseSchedule(group.schedule);
   if (!schedule) return { created: 0, skipped: 0 };
@@ -79,7 +59,6 @@ async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
   for (let offset = 0; offset < totalDays; offset++) {
     const date = new Date(today);
     date.setDate(date.getDate() + offset);
-
     const dayName = DAY_NAMES[date.getDay()];
     const slots = schedule[dayName];
     if (!slots) continue;
@@ -87,7 +66,6 @@ async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
     const dateStr = formatDateStr(date);
 
     for (const slot of slots) {
-      // Сегодня — пропускаем уже прошедшие занятия
       if (offset === 0) {
         const [hh, mm] = slot.start.split(':').map(Number);
         const startAt = new Date(date);
@@ -106,6 +84,7 @@ async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
             startTime: slot.start,
           },
           defaults: {
+            tenantId: group.tenantId,
             endTime: slot.end,
             is_cancelled: false,
           },
@@ -113,7 +92,6 @@ async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
         if (isCreated) created += 1;
         else skipped += 1;
       } catch (e) {
-        // Уникальный индекс уже есть — пропускаем
         skipped += 1;
       }
     }
@@ -122,10 +100,6 @@ async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
   return { created, skipped };
 }
 
-/**
- * Отменяет будущие не-cancelled занятия группы, которые больше
- * не соответствуют новому schedule. Сами записи не удаляет.
- */
 async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
   const schedule = parseSchedule(group.schedule);
   if (!schedule) return { cancelled: 0 };
@@ -136,16 +110,15 @@ async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
   const limit = new Date(today);
   limit.setDate(limit.getDate() + weeksAhead * 7);
 
-  // Все будущие занятия группы
   const lessons = await Lesson.findAll({
     where: {
+      tenantId: group.tenantId,
       groupId: group.id,
       date: { [Op.gte]: todayStr },
       is_cancelled: false,
     },
   });
 
-  // Множество допустимых слотов: 'YYYY-MM-DD|HH:MM:SS'
   const validSlots = new Set();
   for (let offset = 0; offset < weeksAhead * 7; offset++) {
     const date = new Date(today);
@@ -154,9 +127,7 @@ async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
     const slots = schedule[dayName];
     if (!slots) continue;
     const dateStr = formatDateStr(date);
-    for (const s of slots) {
-      validSlots.add(`${dateStr}|${s.start}`);
-    }
+    for (const s of slots) validSlots.add(`${dateStr}|${s.start}`);
   }
 
   let cancelled = 0;
@@ -170,12 +141,9 @@ async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
   return { cancelled };
 }
 
-// ---------- Cron ----------
-
 function registerRecurringLessonsJob() {
-  // Ежедневно в 02:00. TTL 1 час — защита от зависшего лока.
   cron.schedule('0 2 * * *', withLock('cron:recurring-lessons', 3600, async () => {
-    console.log('[recurring] Generating lessons for all groups...');
+    console.log('[recurring] Generating lessons for all groups (all tenants)...');
     try {
       const groups = await Group.findAll({
         where: { schedule: { [Op.ne]: null } },

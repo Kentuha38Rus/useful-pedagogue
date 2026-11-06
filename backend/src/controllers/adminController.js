@@ -20,21 +20,18 @@ const {
   generateLessonsForGroup,
   cancelMismatchedFutureLessons,
 } = require('../jobs/recurringLessonsJob');
+const { requireTenant } = require('../utils/helpers');
 
 const TEACHER_SHARE = 0.4;
 const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
 
-const notifyCooldown = new Map();
+const notifyCooldown = new Map(); // `${tenantId}:${date}` -> timestamp
 
 const isValidDateString = (s) => {
   if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
   const [y, m, d] = s.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
-  return (
-    dt.getFullYear() === y &&
-    dt.getMonth() === m - 1 &&
-    dt.getDate() === d
-  );
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 };
 
 const getServerLocalDateString = () => {
@@ -51,14 +48,6 @@ const toNumberOrNull = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-/**
- * Вычисляем статус занятия для дашборда.
- * Возможные значения:
- *   'cancelled' — is_cancelled = true
- *   'done'      — есть хотя бы одна запись в Attendance
- *   'no_mark'   — время окончания уже прошло, но отметок нет
- *   'planned'   — ещё не наступило (или сейчас идёт)
- */
 const computeLessonStatus = (lesson, attendanceCount, now) => {
   if (lesson.is_cancelled) return 'cancelled';
   if (attendanceCount > 0) return 'done';
@@ -71,10 +60,9 @@ class AdminController {
   // ----- Статистика -----
   static async getStats(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { date } = req.query;
-      const todayStr = isValidDateString(date)
-        ? date
-        : getServerLocalDateString();
+      const todayStr = isValidDateString(date) ? date : getServerLocalDateString();
 
       const [
         totalUsers,
@@ -84,34 +72,31 @@ class AdminController {
         totalGroups,
         totalCourses,
       ] = await Promise.all([
-        User.count(),
-        User.count({ where: { role: 'teacher' } }),
-        User.count({ where: { role: 'parent' } }),
-        Child.count(),
-        Group.count(),
-        Course.count(),
+        User.count({ where: { tenantId: tid } }),
+        User.count({ where: { role: 'teacher', tenantId: tid } }),
+        User.count({ where: { role: 'parent', tenantId: tid } }),
+        Child.count({ where: { tenantId: tid } }),
+        Group.count({ where: { tenantId: tid } }),
+        Course.count({ where: { tenantId: tid } }),
       ]);
 
-      const totalAdmins = Math.max(
-        0,
-        totalUsers - totalTeachers - totalParents
-      );
+      const totalAdmins = Math.max(0, totalUsers - totalTeachers - totalParents);
 
-      // Считаем только не отменённые — для общего счётчика на карточке
       const todayLessons = await Lesson.count({
-        where: { date: todayStr, is_cancelled: false },
+        where: { tenantId: tid, date: todayStr, is_cancelled: false },
       });
 
       const withGroups = await ChildGroup.findAll({
         attributes: ['childId'],
+        where: { tenantId: tid },
         group: ['childId'],
         raw: true,
       });
       const childIdsWithGroups = withGroups.map((c) => c.childId);
-      const unassignedWhere =
-        childIdsWithGroups.length > 0
-          ? { id: { [Op.notIn]: childIdsWithGroups } }
-          : {};
+      const unassignedWhere = { tenantId: tid };
+      if (childIdsWithGroups.length > 0) {
+        unassignedWhere.id = { [Op.notIn]: childIdsWithGroups };
+      }
 
       const unassignedChildren = await Child.count({ where: unassignedWhere });
 
@@ -125,20 +110,22 @@ class AdminController {
         unassignedChildrenList,
       ] = await Promise.all([
         User.findAll({
-          where: { role: 'teacher' },
+          where: { role: 'teacher', tenantId: tid },
           attributes: ['id', 'name', 'username', 'email'],
           order: [['name', 'ASC']],
         }),
         User.findAll({
-          where: { role: 'parent' },
+          where: { role: 'parent', tenantId: tid },
           attributes: ['id', 'name', 'username', 'email'],
           order: [['name', 'ASC']],
         }),
         Child.findAll({
+          where: { tenantId: tid },
           attributes: ['id', 'name', 'birthDate'],
           order: [['name', 'ASC']],
         }),
         Group.findAll({
+          where: { tenantId: tid },
           attributes: ['id', 'name', 'maxStudents'],
           include: [
             { model: User, as: 'teacher', attributes: ['id', 'name'] },
@@ -153,20 +140,13 @@ class AdminController {
           order: [['name', 'ASC']],
         }),
         Course.findAll({
+          where: { tenantId: tid },
           attributes: ['id', 'name', 'price'],
           order: [['name', 'ASC']],
         }),
-        // Включаем и отменённые — покажем их с бейджем в UI
         Lesson.findAll({
-          where: { date: todayStr },
-          attributes: [
-            'id',
-            'date',
-            'startTime',
-            'endTime',
-            'topic',
-            'is_cancelled',
-          ],
+          where: { tenantId: tid, date: todayStr },
+          attributes: ['id', 'date', 'startTime', 'endTime', 'topic', 'is_cancelled'],
           include: [
             {
               model: Group,
@@ -187,12 +167,11 @@ class AdminController {
         }),
       ]);
 
-      // Подсчёт attendance для today lessons
       const lessonIds = todayLessonsRaw.map((l) => l.id);
       let attMap = new Map();
       if (lessonIds.length > 0) {
         const attCounts = await Attendance.findAll({
-          where: { lessonId: { [Op.in]: lessonIds } },
+          where: { tenantId: tid, lessonId: { [Op.in]: lessonIds } },
           attributes: [
             'lessonId',
             [sequelize.fn('COUNT', sequelize.col('id')), 'cnt'],
@@ -213,15 +192,14 @@ class AdminController {
           endTime: l.endTime,
           topic: l.topic,
           groupName: l.group ? l.group.name : null,
-          teacherName:
-            l.group && l.group.teacher ? l.group.teacher.name : null,
-          courseName:
-            l.group && l.group.course ? l.group.course.name : null,
+          teacherName: l.group && l.group.teacher ? l.group.teacher.name : null,
+          courseName: l.group && l.group.course ? l.group.course.name : null,
           status,
         };
       });
 
-      const lastNotifyAt = notifyCooldown.get(todayStr) || 0;
+      const cooldownKey = `${tid}:${todayStr}`;
+      const lastNotifyAt = notifyCooldown.get(cooldownKey) || 0;
       const elapsed = Date.now() - lastNotifyAt;
       const notifyCooldownSec = lastNotifyAt
         ? Math.max(0, Math.ceil((NOTIFY_COOLDOWN_MS - elapsed) / 1000))
@@ -265,22 +243,20 @@ class AdminController {
     }
   }
 
-  // ----- Уведомление родителей и преподавателей по сегодняшним занятиям -----
+  // ----- Уведомление по сегодняшним занятиям -----
   static async notifyTodayLessons(req, res, next) {
     const trace = [];
     try {
+      const tid = requireTenant(req);
       const { date, title, body } = req.body || {};
-      const todayStr = isValidDateString(date)
-        ? date
-        : getServerLocalDateString();
+      const todayStr = isValidDateString(date) ? date : getServerLocalDateString();
       trace.push(`date=${todayStr}`);
 
+      const cooldownKey = `${tid}:${todayStr}`;
       const now = Date.now();
-      const lastAt = notifyCooldown.get(todayStr) || 0;
+      const lastAt = notifyCooldown.get(cooldownKey) || 0;
       if (lastAt && now - lastAt < NOTIFY_COOLDOWN_MS) {
-        const retryAfterSec = Math.ceil(
-          (NOTIFY_COOLDOWN_MS - (now - lastAt)) / 1000
-        );
+        const retryAfterSec = Math.ceil((NOTIFY_COOLDOWN_MS - (now - lastAt)) / 1000);
         trace.push(`cooldown active, retryAfter=${retryAfterSec}s`);
         return res.status(429).json({
           message: `Повторная отправка возможна через ${retryAfterSec} сек.`,
@@ -292,7 +268,7 @@ class AdminController {
       let lessons;
       try {
         lessons = await Lesson.findAll({
-          where: { date: todayStr, is_cancelled: false },
+          where: { tenantId: tid, date: todayStr, is_cancelled: false },
           attributes: ['id'],
           include: [
             {
@@ -307,11 +283,7 @@ class AdminController {
                   through: { attributes: [] },
                   attributes: ['id'],
                   include: [
-                    {
-                      model: User,
-                      as: 'parent',
-                      attributes: ['id', 'name', 'role'],
-                    },
+                    { model: User, as: 'parent', attributes: ['id', 'name', 'role'] },
                   ],
                 },
               ],
@@ -377,14 +349,12 @@ class AdminController {
           subscriptions: 0,
           socketEmitted: 0,
           chatCreated: 0,
-          message:
-            'По сегодняшним занятиям нет ни родителей, ни преподавателей для уведомления.',
+          message: 'По сегодняшним занятиям нет ни родителей, ни преподавателей для уведомления.',
           trace,
         });
       }
 
-      const finalTitle =
-        (title && String(title).trim()) || 'Напоминание о занятии';
+      const finalTitle = (title && String(title).trim()) || 'Напоминание о занятии';
       const finalBody =
         (body && String(body).trim()) ||
         `Сегодня запланировано занятий: ${lessons.length}. Пожалуйста, проверьте расписание.`;
@@ -402,14 +372,11 @@ class AdminController {
       let subscriptionsCount = 0;
       try {
         const subscriptions = await PushSubscription.findAll({
-          where: { user_id: userIds },
+          where: { tenant_id: tid, user_id: userIds },
         });
         subscriptionsCount = subscriptions.length;
         if (subscriptions.length > 0) {
-          pushResults = await notificationService.sendPushNotifications(
-            subscriptions,
-            payload
-          );
+          pushResults = await notificationService.sendPushNotifications(subscriptions, payload);
         }
         trace.push(`push: subs=${subscriptionsCount}`);
       } catch (e) {
@@ -447,26 +414,21 @@ class AdminController {
             const chatId = ChatService.getChatId(adminId, recipient.id);
 
             const message = await Message.create({
+              tenant_id: tid,
               chat_id: chatId,
               sender_id: adminId,
               content: chatText,
             });
 
-            const messageWithSender = await Message.findByPk(message.id, {
+            const messageWithSender = await Message.findOne({
+              where: { id: message.id, tenant_id: tid },
               include: [
-                {
-                  model: User,
-                  as: 'sender',
-                  attributes: ['id', 'name', 'role'],
-                },
+                { model: User, as: 'sender', attributes: ['id', 'name', 'role'] },
               ],
             });
 
             if (io) {
-              io.to(`user:${recipient.id}`).emit(
-                'new_message',
-                messageWithSender
-              );
+              io.to(`user:${recipient.id}`).emit('new_message', messageWithSender);
               io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
             }
 
@@ -482,7 +444,7 @@ class AdminController {
         console.error('[notifyTodayLessons] chat block error:', e);
       }
 
-      notifyCooldown.set(todayStr, now);
+      notifyCooldown.set(cooldownKey, now);
 
       res.status(200).json({
         success: true,
@@ -505,16 +467,13 @@ class AdminController {
   }
 
   // ----- Отчёт по зарплате -----
-  // В отчёт попадают ТОЛЬКО занятия:
-  //   1) не отменённые (is_cancelled = false)
-  //   2) с хотя бы одной записью Attendance (учитель открыл журнал)
-  //   3) с хотя бы одним present (был хоть кто-то из детей)
   static async getSalaryReport(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { from, to } = req.query;
 
       const teachers = await User.findAll({
-        where: { role: 'teacher' },
+        where: { role: 'teacher', tenantId: tid },
         attributes: ['id', 'name', 'email'],
       });
 
@@ -524,12 +483,12 @@ class AdminController {
 
       for (const teacher of teachers) {
         const groups = await Group.findAll({
-          where: { teacherId: teacher.id },
+          where: { teacherId: teacher.id, tenantId: tid },
           include: [{ model: Course, as: 'course' }],
         });
         const groupIds = groups.map((g) => g.id);
 
-        const lessonWhere = { is_cancelled: false };
+        const lessonWhere = { tenantId: tid, is_cancelled: false };
         if (groupIds.length > 0) {
           lessonWhere.groupId = { [Op.in]: groupIds };
         } else {
@@ -545,19 +504,12 @@ class AdminController {
         const lessons = await Lesson.findAll({
           where: lessonWhere,
           include: [
-            {
-              model: Group,
-              as: 'group',
-              include: [{ model: Course, as: 'course' }],
-            },
+            { model: Group, as: 'group', include: [{ model: Course, as: 'course' }] },
             {
               model: Attendance,
               as: 'attendances',
-              // 👇 required: true — берём только занятия, где есть отметки
               required: true,
-              include: [
-                { model: Child, as: 'child', attributes: ['id', 'name'] },
-              ],
+              include: [{ model: Child, as: 'child', attributes: ['id', 'name'] }],
             },
           ],
           order: [['date', 'DESC'], ['startTime', 'ASC']],
@@ -574,22 +526,14 @@ class AdminController {
           const price = course ? parseFloat(course.price) : 0;
 
           const atts = lesson.attendances || [];
-
-          const presentStudents = atts
-            .filter((a) => a.status === 'present')
-            .map((a) => (a.child ? a.child.name : '—'));
-          const lateStudents = atts
-            .filter((a) => a.status === 'late')
-            .map((a) => (a.child ? a.child.name : '—'));
-          const absentStudents = atts
-            .filter((a) => a.status === 'absent')
-            .map((a) => (a.child ? a.child.name : '—'));
+          const presentStudents = atts.filter((a) => a.status === 'present').map((a) => (a.child ? a.child.name : '—'));
+          const lateStudents = atts.filter((a) => a.status === 'late').map((a) => (a.child ? a.child.name : '—'));
+          const absentStudents = atts.filter((a) => a.status === 'absent').map((a) => (a.child ? a.child.name : '—'));
 
           const present = presentStudents.length;
           const late = lateStudents.length;
           const absent = absentStudents.length;
 
-          // 👇 Нулевой заработок не показываем
           if (present === 0) continue;
 
           const lessonRevenue = present * price;
@@ -650,9 +594,10 @@ class AdminController {
   // ----- Пользователи -----
   static async getAllUsers(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { page = 1, limit = 20, role, search } = req.query;
       const offset = (page - 1) * limit;
-      const where = {};
+      const where = { tenantId: tid };
       if (role) where.role = role;
       if (search) {
         where[Op.or] = [
@@ -699,8 +644,10 @@ class AdminController {
 
   static async getUserDetails(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { id } = req.params;
-      const user = await User.findByPk(id, {
+      const user = await User.findOne({
+        where: { id, tenantId: tid },
         attributes: { exclude: ['passwordHash'] },
         include: [
           {
@@ -735,12 +682,13 @@ class AdminController {
 
   static async updateUserRole(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { id } = req.params;
       const { role } = req.body;
       if (!['admin', 'teacher', 'parent'].includes(role)) {
         return res.status(400).json({ message: 'Invalid role' });
       }
-      const user = await User.findByPk(id);
+      const user = await User.findOne({ where: { id, tenantId: tid } });
       if (!user) return res.status(404).json({ message: 'User not found' });
       user.role = role;
       await user.save();
@@ -755,11 +703,10 @@ class AdminController {
 
   static async createUser(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { username, email, password, name, phone, role } = req.body;
       if (!username || !password || !name) {
-        return res
-          .status(400)
-          .json({ message: 'Username, password and name are required' });
+        return res.status(400).json({ message: 'Username, password and name are required' });
       }
       if (!['admin', 'teacher', 'parent'].includes(role)) {
         return res.status(400).json({ message: 'Invalid role' });
@@ -777,6 +724,7 @@ class AdminController {
 
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await User.create({
+        tenantId: tid,
         username,
         email: email || null,
         passwordHash,
@@ -791,74 +739,35 @@ class AdminController {
     }
   }
 
-  // ----- Удаление пользователя -----
-  // Сначала чистим все FK-зависимости (в порядке «от дочерних к родительским»),
-  // затем самого пользователя. Всё в одной транзакции: либо всё, либо ничего.
-  //
-  // Порядок важен:
-  //   1. Messages (sender_id — RESTRICT)
-  //   2. PushSubscriptions (user_id)
-  //   3. Notifications (user_id)
-  //   4. LessonResponse (parent_id + admin_id)
-  //   5. Groups (teacherId) — каскадом Lessons → Attendances → LessonResponse
-  //   6. Children (parentId) — каскадом ChildGroup, LessonResponse, Attendances
-  //   7. User
   static async deleteUser(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { id } = req.params;
-      const user = await User.findByPk(id);
+      const user = await User.findOne({ where: { id, tenantId: tid } });
       if (!user) return res.status(404).json({ message: 'User not found' });
 
       if (user.id === req.user.id) {
-        return res
-          .status(400)
-          .json({ message: 'Cannot delete your own account' });
+        return res.status(400).json({ message: 'Cannot delete your own account' });
       }
 
       await sequelize.transaction(async (t) => {
         const opts = { transaction: t };
 
-        // 1. Сообщения, где он — отправитель
-        await Message.destroy({ where: { sender_id: user.id } }, opts);
-
-        // 2. Push-подписки
-        await PushSubscription.destroy(
-          { where: { user_id: user.id } },
-          opts
-        );
-
-        // 3. Уведомления
-        await Notification.destroy({ where: { user_id: user.id } }, opts);
-
-        // 4. Ответы на напоминания: где он родитель и где он инициатор-админ
-        await LessonResponse.destroy(
-          { where: { parent_id: user.id } },
-          opts
-        );
-        await LessonResponse.destroy(
-          { where: { admin_id: user.id } },
-          opts
-        );
-
-        // 5. Если преподаватель — удаляем его группы.
-        //    Каскадом уйдут Lessons → Attendances, LessonResponse(lesson_id).
-        await Group.destroy({ where: { teacherId: user.id } }, opts);
-
-        // 6. Если родитель — его дети.
-        //    Каскадом уйдут ChildGroup, LessonResponse(child_id), Attendances.
-        await Child.destroy({ where: { parentId: user.id } }, opts);
-
-        // 7. И только теперь сам пользователь
+        await Message.destroy({ where: { tenant_id: tid, sender_id: user.id } }, opts);
+        await PushSubscription.destroy({ where: { tenant_id: tid, user_id: user.id } }, opts);
+        await Notification.destroy({ where: { tenant_id: tid, user_id: user.id } }, opts);
+        await LessonResponse.destroy({ where: { tenant_id: tid, parent_id: user.id } }, opts);
+        await LessonResponse.destroy({ where: { tenant_id: tid, admin_id: user.id } }, opts);
+        await Group.destroy({ where: { tenantId: tid, teacherId: user.id } }, opts);
+        await Child.destroy({ where: { tenantId: tid, parentId: user.id } }, opts);
         await user.destroy(opts);
       });
 
       res.status(204).send();
     } catch (error) {
-      // Понятное сообщение, если что-то всё-таки держит пользователя
       if (error?.name === 'SequelizeForeignKeyConstraintError') {
         return res.status(409).json({
-          message:
-            'Не удалось удалить: остались связанные записи. Обновите страницу и попробуйте снова.',
+          message: 'Не удалось удалить: остались связанные записи. Обновите страницу и попробуйте снова.',
           detail: error.parent?.detail || error.message,
         });
       }
@@ -869,7 +778,9 @@ class AdminController {
   // ----- Группы -----
   static async getAllGroups(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const groups = await Group.findAll({
+        where: { tenantId: tid },
         include: [
           { model: User, as: 'teacher', attributes: ['id', 'name', 'email'] },
           { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
@@ -896,16 +807,17 @@ class AdminController {
 
   static async createGroup(req, res, next) {
     try {
-      const { courseId, teacherId, name, schedule, maxStudents, lessons } =
-        req.body;
+      const tid = requireTenant(req);
+      const { courseId, teacherId, name, schedule, maxStudents, lessons } = req.body;
 
-      const course = await Course.findByPk(courseId);
+      const course = await Course.findOne({ where: { id: courseId, tenantId: tid } });
       if (!course) return res.status(400).json({ message: 'Course not found' });
-      const teacher = await User.findByPk(teacherId);
+      const teacher = await User.findOne({ where: { id: teacherId, tenantId: tid } });
       if (!teacher || teacher.role !== 'teacher')
         return res.status(400).json({ message: 'Invalid teacher' });
 
       const group = await Group.create({
+        tenantId: tid,
         courseId,
         teacherId,
         name,
@@ -915,6 +827,7 @@ class AdminController {
 
       if (Array.isArray(lessons) && lessons.length > 0) {
         const lessonData = lessons.map((l) => ({
+          tenantId: tid,
           groupId: group.id,
           date: l.date,
           startTime: l.startTime,
@@ -933,7 +846,8 @@ class AdminController {
         `[createGroup] group=${group.id} generated: created=${gen.created}, skipped=${gen.skipped}`
       );
 
-      const createdGroup = await Group.findByPk(group.id, {
+      const createdGroup = await Group.findOne({
+        where: { id: group.id, tenantId: tid },
         include: [
           { model: User, as: 'teacher', attributes: ['id', 'name', 'email'] },
           { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
@@ -954,19 +868,19 @@ class AdminController {
 
   static async updateGroup(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { id } = req.params;
-      const group = await Group.findByPk(id);
+      const group = await Group.findOne({ where: { id, tenantId: tid } });
       if (!group) return res.status(404).json({ message: 'Group not found' });
 
-      const { courseId, teacherId, name, schedule, maxStudents, lessons } =
-        req.body;
+      const { courseId, teacherId, name, schedule, maxStudents, lessons } = req.body;
 
       if (courseId) {
-        const course = await Course.findByPk(courseId);
+        const course = await Course.findOne({ where: { id: courseId, tenantId: tid } });
         if (!course) return res.status(400).json({ message: 'Course not found' });
       }
       if (teacherId) {
-        const teacher = await User.findByPk(teacherId);
+        const teacher = await User.findOne({ where: { id: teacherId, tenantId: tid } });
         if (!teacher || teacher.role !== 'teacher')
           return res.status(400).json({ message: 'Invalid teacher' });
       }
@@ -990,6 +904,7 @@ class AdminController {
 
       if (Array.isArray(lessons) && lessons.length > 0) {
         const lessonData = lessons.map((l) => ({
+          tenantId: tid,
           groupId: group.id,
           date: l.date,
           startTime: l.startTime,
@@ -1008,7 +923,8 @@ class AdminController {
         `[updateGroup] group=${group.id} generated: created=${gen.created}, skipped=${gen.skipped}`
       );
 
-      const updated = await Group.findByPk(id, {
+      const updated = await Group.findOne({
+        where: { id, tenantId: tid },
         include: [
           { model: User, as: 'teacher', attributes: ['id', 'name', 'email'] },
           { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
@@ -1029,8 +945,9 @@ class AdminController {
 
   static async deleteGroup(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { id } = req.params;
-      const group = await Group.findByPk(id);
+      const group = await Group.findOne({ where: { id, tenantId: tid } });
       if (!group) return res.status(404).json({ message: 'Group not found' });
       await group.destroy();
       res.status(204).send();
@@ -1042,7 +959,9 @@ class AdminController {
   // ----- Курсы -----
   static async getAllCourses(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const courses = await Course.findAll({
+        where: { tenantId: tid },
         include: [
           {
             model: Group,
@@ -1060,7 +979,8 @@ class AdminController {
 
   static async createCourse(req, res, next) {
     try {
-      const course = await Course.create(req.body);
+      const tid = requireTenant(req);
+      const course = await Course.create({ ...req.body, tenantId: tid });
       res.status(201).json(course);
     } catch (error) {
       next(error);
@@ -1069,8 +989,9 @@ class AdminController {
 
   static async updateCourse(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { id } = req.params;
-      const course = await Course.findByPk(id);
+      const course = await Course.findOne({ where: { id, tenantId: tid } });
       if (!course) return res.status(404).json({ message: 'Course not found' });
       await course.update(req.body);
       res.status(200).json(course);
@@ -1081,8 +1002,9 @@ class AdminController {
 
   static async deleteCourse(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { id } = req.params;
-      const course = await Course.findByPk(id);
+      const course = await Course.findOne({ where: { id, tenantId: tid } });
       if (!course) return res.status(404).json({ message: 'Course not found' });
       await course.destroy();
       res.status(204).send();
@@ -1094,7 +1016,9 @@ class AdminController {
   // ----- Платежи (заглушка) -----
   static async getPayments(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const children = await Child.findAll({
+        where: { tenantId: tid },
         include: [
           {
             model: Group,
@@ -1140,7 +1064,9 @@ class AdminController {
   // ----- Управление группами детей -----
   static async getAvailableChildren(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const children = await Child.findAll({
+        where: { tenantId: tid },
         include: [
           { model: User, as: 'parent', attributes: ['id', 'name', 'email'] },
           {
@@ -1160,31 +1086,33 @@ class AdminController {
 
   static async addChildToGroup(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { childId, groupId } = req.body;
       if (!childId || !groupId)
-        return res
-          .status(400)
-          .json({ message: 'childId and groupId are required' });
+        return res.status(400).json({ message: 'childId and groupId are required' });
 
-      const child = await Child.findByPk(childId);
+      const child = await Child.findOne({ where: { id: childId, tenantId: tid } });
       if (!child) return res.status(404).json({ message: 'Child not found' });
 
-      const group = await Group.findByPk(groupId);
+      const group = await Group.findOne({ where: { id: groupId, tenantId: tid } });
       if (!group) return res.status(404).json({ message: 'Group not found' });
 
-      const existing = await ChildGroup.findOne({ where: { childId, groupId } });
+      const existing = await ChildGroup.findOne({
+        where: { childId, groupId, tenantId: tid },
+      });
       if (existing)
-        return res
-          .status(400)
-          .json({ message: 'Child is already in this group' });
+        return res.status(400).json({ message: 'Child is already in this group' });
 
-      const currentCount = await ChildGroup.count({ where: { groupId } });
+      const currentCount = await ChildGroup.count({
+        where: { groupId, tenantId: tid },
+      });
       if (currentCount >= group.maxStudents)
         return res.status(400).json({ message: 'Group is full' });
 
-      await ChildGroup.create({ childId, groupId });
+      await ChildGroup.create({ tenantId: tid, childId, groupId });
 
-      const updatedChild = await Child.findByPk(childId, {
+      const updatedChild = await Child.findOne({
+        where: { id: childId, tenantId: tid },
         include: [
           { model: Group, as: 'groups', through: { attributes: [] } },
           { model: User, as: 'parent', attributes: ['id', 'name', 'email'] },
@@ -1198,13 +1126,14 @@ class AdminController {
 
   static async removeChildFromGroup(req, res, next) {
     try {
+      const tid = requireTenant(req);
       const { childId, groupId } = req.body;
       if (!childId || !groupId)
-        return res
-          .status(400)
-          .json({ message: 'childId and groupId are required' });
+        return res.status(400).json({ message: 'childId and groupId are required' });
 
-      const link = await ChildGroup.findOne({ where: { childId, groupId } });
+      const link = await ChildGroup.findOne({
+        where: { childId, groupId, tenantId: tid },
+      });
       if (!link) return res.status(404).json({ message: 'Link not found' });
 
       await link.destroy();

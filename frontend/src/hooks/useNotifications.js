@@ -9,15 +9,13 @@ const useNotifications = () => {
 
   // ----------------------------------------------------------------
   // Автоподписка на push.
-  // Срабатывает при появлении user.id (после логина / загрузки профиля).
-  // subscribePush идемпотентен: если подписка уже есть в браузере,
-  // он просто подтвердит её на сервере. Ничего не сломается.
+  // Не подписываем platform_admin — у него нет tenantId.
   // ----------------------------------------------------------------
   useEffect(() => {
     const userId = user?.id;
     if (!userId) return;
+    if (user?.role === 'platform_admin') return; // ← ФИКС
 
-    // Если пользователь явно отключил пуши в настройках — не подписываемся
     if (settings?.pushEnabled === false) {
       console.log('[push] auto-subscribe skipped (pushEnabled=false)');
       return;
@@ -47,10 +45,10 @@ const useNotifications = () => {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, settings?.pushEnabled]);
+  }, [user?.id, user?.role, settings?.pushEnabled]);
 
   // ----------------------------------------------------------------
-  // Приём push и действий из Service Worker (BroadcastChannel)
+  // Приём push и действий из Service Worker
   // ----------------------------------------------------------------
   useEffect(() => {
     const unsubscribe = onPushMessage((message) => {
@@ -77,10 +75,12 @@ const useNotifications = () => {
 
   // ----------------------------------------------------------------
   // Socket-уведомления (real-time)
+  // Не подключаем для platform_admin.
   // ----------------------------------------------------------------
   useEffect(() => {
     const userId = user?.id;
     if (!userId) return;
+    if (user?.role === 'platform_admin') return; // ← ФИКС
 
     const socket = getSocket(userId);
     if (!socket) return;
@@ -123,19 +123,13 @@ const useNotifications = () => {
       socket.off('lesson_response_update', handleResponseUpdate);
       socket.off('lesson_response_timeout', handleResponseTimeout);
     };
-  }, [user?.id]);
+  }, [user?.id, user?.role]);
 
   return { notifications };
 };
 
-// ----------------------------------------------------------------
-// Показ браузерного уведомления (локально, пока вкладка открыта)
-// ----------------------------------------------------------------
 const showBrowserNotification = (payload) => {
-  if (
-    typeof window === 'undefined' ||
-    typeof Notification === 'undefined'
-  ) {
+  if (typeof window === 'undefined' || typeof Notification === 'undefined') {
     return;
   }
   if (Notification.permission !== 'granted') return;

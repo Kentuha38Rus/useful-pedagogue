@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { User, Tenant } = require('../models');
 const { Op } = require('sequelize');
 const redis = require('../config/redis');
 const {
@@ -13,12 +13,35 @@ const {
 const BCRYPT_ROUNDS = 10;
 
 class AuthService {
+  /**
+   * Публичная регистрация. Всегда создаёт parent в конкретном тенанте.
+   * tenantSlug обязателен — фронт передаёт его со страницы регистрации
+   * (берётся из поддомена или invite-ссылки).
+   */
   async register(userData) {
-    const { email, password, name, phone, username } = userData;
+    const { email, password, name, phone, username, tenantSlug } = userData;
 
-    // ⚠️ роль здесь НЕ принимается — публичная регистрация всегда parent.
-    // Других пользователей создаёт админ через /api/admin/users.
     const role = 'parent';
+
+    if (!tenantSlug) {
+      const err = new Error('tenantSlug is required');
+      err.status = 400;
+      throw err;
+    }
+
+    const tenant = await Tenant.findOne({
+      where: { slug: String(tenantSlug).toLowerCase().trim() },
+    });
+    if (!tenant) {
+      const err = new Error('Tenant not found');
+      err.status = 404;
+      throw err;
+    }
+    if (tenant.status !== 'active' && tenant.status !== 'trial') {
+      const err = new Error('Tenant is not accepting registrations');
+      err.status = 403;
+      throw err;
+    }
 
     const normalizedEmail = email ? email.toLowerCase().trim() : null;
     const normalizedUsername = username ? username.toLowerCase().trim() : null;
@@ -40,6 +63,7 @@ class AuthService {
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     return User.create({
+      tenantId: tenant.id,
       email: normalizedEmail,
       username: normalizedUsername,
       passwordHash,
@@ -65,6 +89,12 @@ class AuthService {
           { email: { [Op.iLike]: normalized } },
         ],
       },
+      include: [{
+        model: Tenant,
+        as: 'tenant',
+        attributes: ['id', 'slug', 'name', 'status', 'plan'],
+        required: false,
+      }],
     });
 
     // Не палим, что именно неверно — всегда одно сообщение
@@ -81,12 +111,31 @@ class AuthService {
       throw err;
     }
 
+    // Проверка тенанта (кроме platform_admin)
+    if (user.role !== 'platform_admin') {
+      if (!user.tenant) {
+        const err = new Error('Account has no tenant assigned');
+        err.status = 403;
+        throw err;
+      }
+      if (user.tenant.status !== 'active' && user.tenant.status !== 'trial') {
+        const err = new Error('Tenant is suspended');
+        err.status = 403;
+        throw err;
+      }
+    }
+
     const tokens = this.generateTokens(user);
     return { user, tokens };
   }
 
   generateTokens(user) {
-    const payload = { id: user.id, email: user.email, role: user.role };
+    const payload = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      tid: user.tenantId || null,
+    };
     const accessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn });
     const refreshToken = jwt.sign(payload, refreshSecret, { expiresIn: refreshExpiresIn });
     return { accessToken, refreshToken };
@@ -100,7 +149,6 @@ class AuthService {
     }
 
     try {
-      // 1. Проверяем blacklist
       const revoked = await redis.get(`bl:${refreshToken}`);
       if (revoked) {
         const err = new Error('Refresh token revoked');
@@ -108,23 +156,45 @@ class AuthService {
         throw err;
       }
 
-      // 2. Проверяем подпись и срок
       const decoded = jwt.verify(refreshToken, refreshSecret);
 
-      // 3. Проверяем, что пользователь ещё существует
-      const user = await User.findByPk(decoded.id);
+      const user = await User.findByPk(decoded.id, {
+        include: [{
+          model: Tenant,
+          as: 'tenant',
+          attributes: ['id', 'slug', 'name', 'status'],
+          required: false,
+        }],
+      });
       if (!user) {
         const err = new Error('Invalid refresh token');
         err.status = 401;
         throw err;
       }
 
-      // 4. Выпускаем новый access-токен
-      const payload = { id: user.id, email: user.email, role: user.role };
+      if (user.role !== 'platform_admin') {
+        if (!user.tenant) {
+          const err = new Error('Account has no tenant assigned');
+          err.status = 403;
+          throw err;
+        }
+        if (user.tenant.status !== 'active' && user.tenant.status !== 'trial') {
+          const err = new Error('Tenant is suspended');
+          err.status = 403;
+          throw err;
+        }
+      }
+
+      const payload = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        tid: user.tenantId || null,
+      };
       const accessToken = jwt.sign(payload, accessSecret, { expiresIn: accessExpiresIn });
       return { accessToken };
     } catch (e) {
-      if (e.status === 401) throw e;
+      if (e.status === 401 || e.status === 403) throw e;
       const err = new Error('Invalid refresh token');
       err.status = 401;
       throw err;

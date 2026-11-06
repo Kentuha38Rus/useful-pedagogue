@@ -1,6 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../utils/api';
-import { handleApiError } from '../../utils/helpers';
+
+const getErrorMessage = (err) => {
+  if (err.response?.data?.message) return err.response.data.message;
+  if (err.message) return err.message;
+  return 'Произошла ошибка';
+};
 
 export const login = createAsyncThunk(
   'auth/login',
@@ -12,7 +17,7 @@ export const login = createAsyncThunk(
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
       return user;
     } catch (err) {
-      return thunkAPI.rejectWithValue(handleApiError(err));
+      return thunkAPI.rejectWithValue(getErrorMessage(err));
     }
   }
 );
@@ -22,10 +27,9 @@ export const loadUser = createAsyncThunk('auth/loadUser', async (_, thunkAPI) =>
     const res = await api.get('/users/me');
     return res.data;
   } catch (err) {
-    // При любой ошибке (включая таймаут) чистим токены
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
-    return thunkAPI.rejectWithValue(handleApiError(err));
+    return thunkAPI.rejectWithValue(getErrorMessage(err));
   }
 });
 
@@ -51,7 +55,6 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    // Принудительная инициализация (для случаев, когда loadUser завис)
     forceInitialized: (state) => {
       state.initialized = true;
       state.loading = false;

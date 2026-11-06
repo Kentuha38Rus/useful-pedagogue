@@ -14,51 +14,76 @@ import ChatsPage from './pages/Chats/ChatsPage';
 import SchedulePage from './pages/Schedule/SchedulePage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import LoginPage from './pages/Auth/LoginPage';
-import RegisterPage from './pages/Auth/RegisterPage';
 import PrivateRoute from './components/common/PrivateRoute';
 import TeacherGroupsPage from './pages/Teacher/TeacherGroupsPage';
+import PlatformPage from './pages/Platform/PlatformPage';
 
 import './App.scss';
+
+// Регистрации больше нет — только /, /login
+const PUBLIC_PATHS = ['/', '/login'];
 
 function App() {
   const dispatch = useDispatch();
   const location = useLocation();
-  const { user } = useSelector((s) => s.auth);
+  const { user, impersonation, isAuthenticated } = useSelector((s) => s.auth);
 
+  // Загружаем пользователя на защищённых маршрутах
   useEffect(() => {
-    if (!['/login', '/register', '/'].includes(location.pathname)) {
+    if (!PUBLIC_PATHS.includes(location.pathname) && !user) {
       dispatch(loadUser());
     }
-  }, [dispatch, location.pathname]);
+  }, [dispatch, location.pathname, user]);
 
+  // Socket — только для обычных пользователей
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && user?.role !== 'platform_admin') {
       dispatch(initSocket());
       dispatch(fetchDialogs());
     }
-  }, [dispatch, user?.id]);
+  }, [dispatch, user?.id, user?.role]);
 
-  // Публичные страницы (лендинг, login, register) — рендерим БЕЗ .app-обёртки,
-  // чтобы работал window.scroll и react-scroll на лендинге.
-  const isPublic =
-    location.pathname === '/' ||
-    location.pathname === '/login' ||
-    location.pathname === '/register';
+  const isPublic = PUBLIC_PATHS.includes(location.pathname);
+  const isPlatform = location.pathname.startsWith('/platform');
 
+  // 1) Публичные страницы
   if (isPublic) {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     );
   }
 
-  // Защищённая зона /app/* — с фиксированными Header и BottomNav
+  // 2) platform_admin не должен попадать в /app
+  if (isAuthenticated && user?.role === 'platform_admin' && !isPlatform) {
+    return <Navigate to="/platform" replace />;
+  }
+
+  // 3) Платформенная админка
+  if (isPlatform) {
+    return (
+      <Routes>
+        <Route
+          path="/platform"
+          element={
+            <PrivateRoute role="platform_admin">
+              <PlatformPage />
+            </PrivateRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/platform" replace />} />
+      </Routes>
+    );
+  }
+
+  // 4) Защищённая зона /app/*
+  const appClass = impersonation ? 'app app--impersonation' : 'app';
+
   return (
-    <div className="app">
+    <div className={appClass}>
       <Header />
       <main className="app-main">
         <Routes>

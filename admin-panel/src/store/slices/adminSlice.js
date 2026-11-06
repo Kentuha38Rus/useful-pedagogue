@@ -1,13 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../utils/api';
 
-// 👇 принимаем { date: 'YYYY-MM-DD' } и передаём как query
 export const fetchStats = createAsyncThunk('admin/fetchStats', async (params = {}) => {
   const response = await api.get('/admin/stats', { params });
   return response.data;
 });
 
-// 👇 Уведомить всех по сегодняшним занятиям (родители + преподаватели)
 export const notifyTodayLessons = createAsyncThunk(
   'admin/notifyTodayLessons',
   async ({ date } = {}, { rejectWithValue }) => {
@@ -62,9 +60,14 @@ export const updateUserRole = createAsyncThunk(
   }
 );
 
-export const createUser = createAsyncThunk('admin/createUser', async (userData) => {
-  const response = await api.post('/admin/users', userData);
-  return response.data;
+// 👇 Добавлена обработка ошибок
+export const createUser = createAsyncThunk('admin/createUser', async (userData, { rejectWithValue }) => {
+  try {
+    const response = await api.post('/admin/users', userData);
+    return response.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Ошибка при создании пользователя');
+  }
 });
 
 export const deleteUser = createAsyncThunk('admin/deleteUser', async (userId) => {

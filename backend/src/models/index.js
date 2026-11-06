@@ -1,6 +1,7 @@
 const Sequelize = require('sequelize');
 const sequelize = require('../config/db');
 
+const Tenant = require('./Tenant')(sequelize, Sequelize.DataTypes);
 const User = require('./User')(sequelize, Sequelize.DataTypes);
 const Child = require('./Child')(sequelize, Sequelize.DataTypes);
 const Course = require('./Course')(sequelize, Sequelize.DataTypes);
@@ -13,7 +14,39 @@ const Notification = require('./Notification')(sequelize, Sequelize.DataTypes);
 const ChildGroup = require('./ChildGroup')(sequelize, Sequelize.DataTypes);
 const LessonResponse = require('./LessonResponse')(sequelize, Sequelize.DataTypes);
 
-// ---- Связи ----
+// ---- Связь с тенантом (для всех доменных сущностей) ----
+Tenant.hasMany(User, { foreignKey: 'tenantId', as: 'users' });
+User.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(Child, { foreignKey: 'tenantId', as: 'children' });
+Child.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(Course, { foreignKey: 'tenantId', as: 'courses' });
+Course.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(Group, { foreignKey: 'tenantId', as: 'groups' });
+Group.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(Lesson, { foreignKey: 'tenantId', as: 'lessons' });
+Lesson.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(Attendance, { foreignKey: 'tenantId', as: 'attendances' });
+Attendance.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+// snake_case-таблицы используют "tenant_id"
+Tenant.hasMany(Message, { foreignKey: 'tenant_id', as: 'messages' });
+Message.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+Tenant.hasMany(Notification, { foreignKey: 'tenant_id', as: 'notifications' });
+Notification.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+Tenant.hasMany(PushSubscription, { foreignKey: 'tenant_id', as: 'pushSubscriptions' });
+PushSubscription.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+Tenant.hasMany(LessonResponse, { foreignKey: 'tenant_id', as: 'lessonResponses' });
+LessonResponse.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
+// ---- Доменные связи (были) ----
 User.hasMany(Child, { foreignKey: 'parentId', as: 'children' });
 Child.belongsTo(User, { foreignKey: 'parentId', as: 'parent' });
 
@@ -57,6 +90,7 @@ User.hasMany(LessonResponse, { foreignKey: 'parent_id', as: 'lessonResponses' })
 LessonResponse.belongsTo(User, { foreignKey: 'parent_id', as: 'parent' });
 
 const db = {
+  Tenant,
   User,
   Child,
   Course,

@@ -4,7 +4,6 @@ const ChatService = require('../services/chatService');
 const { accessSecret } = require('../config/jwt');
 
 module.exports = (io) => {
-  // 🔥 Аутентификация до connection
   io.use(async (socket, next) => {
     try {
       const token =
@@ -15,12 +14,18 @@ module.exports = (io) => {
 
       const decoded = jwt.verify(token, accessSecret);
       const user = await User.findByPk(decoded.id, {
-        attributes: ['id', 'role'],
+        attributes: ['id', 'role', 'tenantId'],
       });
       if (!user) return next(new Error('User not found'));
 
+      // Проверка соответствия JWT и БД (защита от старого токена)
+      if ((decoded.tid || null) !== (user.tenantId || null)) {
+        return next(new Error('Token tenant mismatch'));
+      }
+
       socket.userId = String(user.id);
       socket.userRole = user.role;
+      socket.userTenantId = user.tenantId ? String(user.tenantId) : null;
       next();
     } catch (err) {
       return next(new Error('Invalid token'));
@@ -30,9 +35,16 @@ module.exports = (io) => {
   io.on('connection', (socket) => {
     const userId = socket.userId;
     const role = socket.userRole;
+    const tenantId = socket.userTenantId;
 
+    // Личная комната (безопасна — user уникален в БД)
     socket.join(`user:${userId}`);
-    socket.join(`role:${role}`);
+
+    // Комнаты, привязанные к тенанту
+    if (tenantId) {
+      socket.join(`tenant:${tenantId}:role:${role}`);
+      socket.join(`tenant:${tenantId}:user:${userId}`);
+    }
 
     socket.on('join_chat', (chatId) => {
       const parts = String(chatId).split('_');
@@ -50,11 +62,26 @@ module.exports = (io) => {
           socket.emit('error', 'receiver_id and content required');
           return;
         }
+        if (!tenantId) {
+          socket.emit('error', 'Tenant context required');
+          return;
+        }
+
+        // Проверка, что получатель в этом же тенанте
+        const receiver = await User.findOne({
+          where: { id: receiver_id, tenantId },
+          attributes: ['id'],
+        });
+        if (!receiver) {
+          socket.emit('error', 'Invalid receiver');
+          return;
+        }
 
         const chatId = ChatService.getChatId(userId, receiver_id);
-        const message = await ChatService.sendMessage(chatId, userId, content, Message);
+        const message = await ChatService.sendMessage(chatId, userId, content, tenantId, Message);
 
-        const messageWithSender = await Message.findByPk(message.id, {
+        const messageWithSender = await Message.findOne({
+          where: { id: message.id, tenant_id: tenantId },
           include: [
             { model: User, as: 'sender', attributes: ['id', 'name', 'role'] },
           ],
@@ -70,8 +97,10 @@ module.exports = (io) => {
 
     socket.on('mark_read', async ({ messageId } = {}) => {
       try {
-        if (!messageId) return;
-        const message = await Message.findByPk(messageId);
+        if (!messageId || !tenantId) return;
+        const message = await Message.findOne({
+          where: { id: messageId, tenant_id: tenantId },
+        });
         if (!message) return;
 
         const parts = String(message.chat_id).split('_');

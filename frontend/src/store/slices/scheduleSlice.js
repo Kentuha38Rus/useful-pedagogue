@@ -4,6 +4,11 @@ import api from '../../utils/api';
 export const fetchMySchedule = createAsyncThunk(
   'schedule/fetchMySchedule',
   async (_, thunkAPI) => {
+    const { user } = thunkAPI.getState().auth;
+    if (user?.role === 'platform_admin') {
+      return []; // ← ФИКС: platform_admin не грузит расписание
+    }
+
     try {
       const res = await api.get('/schedule/me');
       return res.data;

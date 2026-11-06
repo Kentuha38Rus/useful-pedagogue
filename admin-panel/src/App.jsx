@@ -14,6 +14,10 @@ function App() {
 
   // Загрузка профиля
   useEffect(() => {
+    // Если мы на странице логина — не пытаемся загружать профиль,
+    // иначе старый токен вызовет 401 Unauthorized.
+    if (window.location.pathname === '/login') return;
+
     const token = localStorage.getItem('token');
     if (token && !user && !loading && !initialized) {
       dispatch(loadUser());

@@ -1,13 +1,7 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
 const {
-  Lesson,
-  Group,
-  Child,
-  User,
-  PushSubscription,
-  LessonResponse,
-  Message,
+  Lesson, Group, Child, User, PushSubscription, LessonResponse, Message,
 } = require('../models');
 const notificationService = require('../services/notificationService');
 const ChatService = require('../services/chatService');
@@ -27,7 +21,7 @@ function formatDate(dateStr) {
 }
 
 module.exports = (io) => {
-  // ---------- 1. Автоматические напоминания за час до занятия ----------
+  // ---------- 1. Автонапоминания за час ----------
   cron.schedule('0 * * * *', withLock('cron:auto-reminder', 3000, async () => {
     console.log('[cron] Running auto-reminder job...');
     try {
@@ -64,17 +58,16 @@ module.exports = (io) => {
 
       for (const lesson of lessons) {
         if (!lesson.group) continue;
+        const tid = lesson.tenantId;   // ← тенант берётся из самого занятия
 
         const groupName = lesson.group.name || '';
-        const timeRange =
-          `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
+        const timeRange = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
 
-        // ---------------- Push учителю (один раз на урок) ----------------
         const teacher = lesson.group.teacher;
         if (teacher) {
           try {
             const teacherSubs = await PushSubscription.findAll({
-              where: { user_id: teacher.id },
+              where: { user_id: teacher.id, tenant_id: tid },
             });
 
             if (teacherSubs.length > 0) {
@@ -92,21 +85,13 @@ module.exports = (io) => {
                   url: 'app/schedule',
                 },
               };
-
-              await notificationService.sendPushNotifications(
-                teacherSubs,
-                teacherPayload
-              );
+              await notificationService.sendPushNotifications(teacherSubs, teacherPayload);
             }
           } catch (e) {
-            console.error(
-              `[cron] teacher push error for lesson ${lesson.id}:`,
-              e.message
-            );
+            console.error(`[cron] teacher push error for lesson ${lesson.id}:`, e.message);
           }
         }
 
-        // ---------------- Push родителям ----------------
         if (!lesson.group.children) continue;
 
         for (const child of lesson.group.children) {
@@ -116,6 +101,7 @@ module.exports = (io) => {
           const [response, created] = await LessonResponse.findOrCreate({
             where: { lesson_id: lesson.id, child_id: child.id },
             defaults: {
+              tenant_id: tid,
               parent_id: parent.id,
               status: 'pending',
               notified_at: new Date(),
@@ -126,7 +112,7 @@ module.exports = (io) => {
           if (!created) continue;
 
           const subscriptions = await PushSubscription.findAll({
-            where: { user_id: parent.id },
+            where: { user_id: parent.id, tenant_id: tid },
           });
           if (!subscriptions.length) continue;
 
@@ -195,6 +181,7 @@ module.exports = (io) => {
       for (const r of pending) {
         await r.update({ timeout_notified: true });
 
+        const tid = r.tenant_id;
         const adminId = r.admin_id;
         const parentId = r.parent_id;
 
@@ -212,20 +199,16 @@ module.exports = (io) => {
               `${childName} — ${timeRange}`;
 
             const message = await Message.create({
+              tenant_id: tid,
               chat_id: chatId,
               sender_id: adminId,
               content,
               is_system: true,
             });
 
-            const messageWithSender = await Message.findByPk(message.id, {
-              include: [
-                {
-                  model: User,
-                  as: 'sender',
-                  attributes: ['id', 'name', 'role'],
-                },
-              ],
+            const messageWithSender = await Message.findOne({
+              where: { id: message.id, tenant_id: tid },
+              include: [{ model: User, as: 'sender', attributes: ['id', 'name', 'role'] }],
             });
 
             if (io) {
@@ -239,7 +222,7 @@ module.exports = (io) => {
         }
 
         if (io) {
-          io.to('role:admin').emit('lesson_response_timeout', {
+          io.to(`tenant:${tid}:role:admin`).emit('lesson_response_timeout', {
             responseId: r.id,
             childId: r.child_id,
             childName: r.child?.name,
@@ -252,14 +235,15 @@ module.exports = (io) => {
         }
 
         try {
+          // Админы — только из тенанта этого ответа
           const admins = await User.findAll({
-            where: { role: 'admin' },
+            where: { role: 'admin', tenantId: tid },
             attributes: ['id'],
           });
           const adminIds = admins.map((a) => a.id);
 
           if (adminIds.length) {
-            await notificationService.sendToUsers(adminIds, {
+            await notificationService.sendToUsers(adminIds, tid, {
               title: 'Нет ответа от родителя',
               body: `${r.child?.name || 'Ребёнок'}: ${
                 r.parent?.name || 'родитель'

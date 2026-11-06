@@ -4,15 +4,21 @@ import { getSocket } from '../../utils/socket';
 
 // Инициализация: используем общий singleton-сокет
 export const initSocket = () => (dispatch, getState) => {
-  const userId = getState().auth.user?.id;
+  const { user } = getState().auth;
+  const userId = user?.id;
+
   if (!userId) {
     console.warn('[chat] initSocket: user not loaded yet');
     return;
   }
+  if (user?.role === 'platform_admin') {
+    console.log('[chat] initSocket skipped for platform_admin');
+    return;
+  }
+
   const socket = getSocket(userId);
   if (!socket) return;
 
-  // Снимаем предыдущие слушатели, чтобы не задваивать
   socket.off('new_message');
   socket.off('message_read');
 
@@ -26,23 +32,28 @@ export const initSocket = () => (dispatch, getState) => {
   });
 };
 
-// chat_id = "min_max" — вычисляем «собеседника»
 export const getOtherUserId = (chatId, myUserId) => {
   const parts = String(chatId).split('_');
   if (parts.length !== 2) return null;
   return parts[0] === String(myUserId) ? parts[1] : parts[0];
 };
 
-export const fetchDialogs = createAsyncThunk('chat/fetchDialogs', async () => {
-  const res = await api.get('/messages/chats');
-  return res.data;
-});
+export const fetchDialogs = createAsyncThunk(
+  'chat/fetchDialogs',
+  async (_, thunkAPI) => {
+    const { user } = thunkAPI.getState().auth;
+    if (user?.role === 'platform_admin') {
+      return []; // ← ФИКС: platform_admin не грузит диалоги
+    }
+    const res = await api.get('/messages/chats');
+    return res.data;
+  }
+);
 
 export const fetchMessages = createAsyncThunk(
   'chat/fetchMessages',
   async (chatId) => {
     const res = await api.get(`/messages/chat/${chatId}`);
-    // Бэкенд: findAndCountAll → { count, rows } | на всякий случай
     const messages = Array.isArray(res.data)
       ? res.data
       : res.data.messages || res.data.rows || [];
@@ -72,7 +83,6 @@ export const sendMessage = createAsyncThunk(
   }
 );
 
-// Эмитим mark_read для конкретного сообщения
 export const markMessageAsRead = (messageId) => (dispatch, getState) => {
   const userId = getState().auth.user?.id;
   const socket = getSocket(userId);
@@ -81,7 +91,6 @@ export const markMessageAsRead = (messageId) => (dispatch, getState) => {
   }
 };
 
-// Отмечаем прочитанными все входящие в активном чате
 export const markDialogAsRead = () => (dispatch, getState) => {
   const { messages, activeChatId } = getState().chat;
   const myId = getState().auth.user?.id;
@@ -98,8 +107,8 @@ export const markDialogAsRead = () => (dispatch, getState) => {
 };
 
 const initialState = {
-  dialogs: [],       // [{ chat_id, other_user, last_message, unread_count }]
-  messages: [],      // активный диалог
+  dialogs: [],
+  messages: [],
   activeChatId: null,
   loading: false,
   unreadTotal: 0,
@@ -123,7 +132,6 @@ const chatSlice = createSlice({
       const chatId = message.chat_id;
       const isOwn = String(message.sender_id) === String(myUserId);
 
-      // 1. Обновляем/создаём диалог
       let dialog = state.dialogs.find((d) => d.chat_id === chatId);
       if (!dialog) {
         dialog = {
@@ -140,7 +148,6 @@ const chatSlice = createSlice({
         }
       }
 
-      // 2. Если открыт этот чат — добавляем в ленту
       if (state.activeChatId === chatId) {
         state.messages.push(message);
       }
@@ -166,7 +173,6 @@ const chatSlice = createSlice({
       if (msg && !msg.is_read) {
         msg.is_read = true;
 
-        // Уменьшаем счётчик диалога и общий счётчик
         const dialog = state.dialogs.find((d) => d.chat_id === msg.chat_id);
         if (dialog && (dialog.unread_count || 0) > 0) {
           dialog.unread_count = Math.max(0, dialog.unread_count - 1);
@@ -186,7 +192,6 @@ const chatSlice = createSlice({
       .addCase(fetchDialogs.fulfilled, (state, action) => {
         state.dialogs = action.payload || [];
 
-        // Если сейчас открыт диалог — считаем его прочитанным
         if (state.activeChatId) {
           const activeDialog = state.dialogs.find(
             (d) => d.chat_id === state.activeChatId
