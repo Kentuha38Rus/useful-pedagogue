@@ -1,0 +1,35 @@
+@import './assets/styles/variables';
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: $background;
+  color: $text-primary;
+  font-family: $font-family;
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  padding-top: 48px;      /* Header */
+  padding-bottom: 96px;   /* BottomNav (64) + отступ (16) + зазор (16) */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: $breakpoint-mobile) {
+    padding-top: 48px;
+    padding-bottom: 90px; /* BottomNav (58) + отступ (14) + зазор (18) */
+  }
+}
+
+@media (max-width: $breakpoint-small-mobile) {
+  .app-main {
+    padding-top: 48px;
+    padding-bottom: 86px; /* BottomNav (52) + отступ (14) + зазор (20) */
+  }
+}
+.app--impersonation .app-main {
+  padding-top: calc(48px + 36px); // Header + плашка имперсонации
+}

@@ -7,7 +7,6 @@ import { initSocket, fetchDialogs } from './store/slices/chatSlice';
 
 import BottomNav from './components/navigation/BottomNav';
 import Header from './components/navigation/Header';
-import LandingPage from './pages/Landing/LandingPage';
 import HomePage from './pages/Home/HomePage';
 import CoursesPage from './pages/Courses/CoursesPage';
 import ChatsPage from './pages/Chats/ChatsPage';
@@ -20,22 +19,20 @@ import PlatformPage from './pages/Platform/PlatformPage';
 
 import './App.scss';
 
-// Регистрации больше нет — только /, /login
-const PUBLIC_PATHS = ['/', '/login'];
+// Только логин публичный. Корень теперь редиректит.
+const PUBLIC_PATHS = ['/login'];
 
 function App() {
   const dispatch = useDispatch();
   const location = useLocation();
   const { user, impersonation, isAuthenticated } = useSelector((s) => s.auth);
 
-  // Загружаем пользователя на защищённых маршрутах
   useEffect(() => {
     if (!PUBLIC_PATHS.includes(location.pathname) && !user) {
       dispatch(loadUser());
     }
   }, [dispatch, location.pathname, user]);
 
-  // Socket — только для обычных пользователей
   useEffect(() => {
     if (user?.id && user?.role !== 'platform_admin') {
       dispatch(initSocket());
@@ -46,13 +43,12 @@ function App() {
   const isPublic = PUBLIC_PATHS.includes(location.pathname);
   const isPlatform = location.pathname.startsWith('/platform');
 
-  // 1) Публичные страницы
+  // 1) Публичные страницы (только логин)
   if (isPublic) {
     return (
       <Routes>
-        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
   }
@@ -93,7 +89,7 @@ function App() {
           <Route path="/app/schedule" element={<PrivateRoute><SchedulePage /></PrivateRoute>} />
           <Route path="/app/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
           <Route path="/app/teacher/groups" element={<PrivateRoute><TeacherGroupsPage /></PrivateRoute>} />
-          <Route path="*" element={<Navigate to="/" />} />
+          <Route path="*" element={<Navigate to={isAuthenticated ? "/app" : "/login"} replace />} />
         </Routes>
       </main>
       <BottomNav />
