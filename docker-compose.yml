@@ -133,6 +133,35 @@ services:
     mem_limit: 256m
     cpus: '0.5'
 
+  # --- НОВЫЙ СЕРВИС ЛЕНДИНГА ---
+  landing:
+    build:
+      context: ./landing
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+    container_name: useful-pedagogue-landing
+    user: "101:101"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=128m,uid=101,gid=101,mode=0700
+      - /var/run:size=16m,uid=101,gid=101,mode=0700
+      - /var/log/nginx:size=16m,uid=101,gid=101,mode=0700
+      - /tmp:size=16m,uid=101,gid=101,mode=0700
+    networks:
+      - internal
+    mem_limit: 128m
+    cpus: '0.3'
+  # -----------------------------
+
   admin-panel:
     build:
       context: ./admin-panel
@@ -176,6 +205,7 @@ services:
       - ./nginx/certbot:/var/www/certbot:ro
     depends_on:
       - frontend
+      - landing
       - admin-panel
       - backend
     restart: unless-stopped

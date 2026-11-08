@@ -1,21 +1,29 @@
-# Зависимости
+# ============================================================
+#  .gitignore — защита репозитория
+#  НЕ добавлять BOM, сохранять в UTF-8 без BOM.
+# ============================================================
+
+# ---- Зависимости ----
 node_modules/
 */node_modules/
 
-# Переменные окружения
+# ---- Переменные окружения ----
 .env
 .env.*
 !.env.example
 *.env
 .env.local
 .env.*.local
+.env.production
 
-# Логи
+# ---- Логи ----
 *.log
 *.log.*
 logs/
+combined.log
+error.log
 
-# Сборки
+# ---- Сборки ----
 dist/
 build/
 .cache/
@@ -24,33 +32,50 @@ build/
 dev-dist/
 */dev-dist/
 
-# Дампы БД
+# ---- Артефакты сканеров ----
+audit.json
+*/audit.json
+npm-audit.json
+trivy-*.json
+trivy-*.txt
+
+# ---- Дампы БД ----
 *.dump
 *.sql.gz
 backup*.sql
 backups/
 
-# Docker
+# ---- Docker ----
 docker-compose.override.yml
 
-# Сертификаты
-nginx/certs/
+# ---- Let's Encrypt (критично: не коммитим приватные ключи) ----
+nginx/certs/*
+!nginx/certs/.gitkeep
+!nginx/certs/renewal-hooks/
+nginx/certs/renewal-hooks/**/*
+!nginx/certs/renewal-hooks/deploy/
+!nginx/certs/renewal-hooks/deploy/*.sh
 
-# Системные файлы
+# ---- Certbot webroot (временные challenge-файлы) ----
+nginx/certbot/*
+!nginx/certbot/.gitkeep
+
+# ---- Certbot logs ----
+nginx/certbot-logs/
+
+# ---- Системные файлы ----
 .DS_Store
 Thumbs.db
-register.json
+desktop.ini
 
-# Файлы редакторов
+# ---- Файлы редакторов ----
 .vscode/
 .idea/
+*.swp
+*.swo
 
-# ерунда
+# ---- Временные / личные файлы ----
+register.json
 Подсказка/
 structure.txt
-*.txt
-desktop.ini
-# ������� ������� (�� ��� �����������)
-���������/
-
-���������/
+Structure.txt
