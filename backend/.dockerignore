@@ -14,3 +14,8 @@ tests
 *.dump
 combined.log
 error.log
+# Sensitive files (never copy into image)
+*_token.txt
+*_id.txt
+platform_refresh.txt
+register.json

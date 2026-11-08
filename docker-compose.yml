@@ -2,12 +2,16 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: useful-pedagogue-db
+    user: "70:70"
     environment:
       POSTGRES_USER: ${DB_USER:-pedagogue}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       POSTGRES_DB: ${DB_NAME:-useful_pedagogue}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    tmpfs:
+      - /var/run/postgresql:size=16m,uid=70,gid=70,mode=0775
+      - /tmp:size=16m,uid=70,gid=70,mode=0700
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-pedagogue} -d ${DB_NAME:-useful_pedagogue}"]
       interval: 10s
@@ -15,23 +19,40 @@ services:
       retries: 10
       start_period: 20s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - internal
+    # порты НЕ публикуются — БД доступна только внутри docker-сети
+    mem_limit: 1g
+    cpus: '1'
 
   redis:
     image: redis:7-alpine
     container_name: useful-pedagogue-redis
-    command: ["redis-server", "--appendonly", "yes"]
+    user: "999:1000"
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 10
+      start_period: 10s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - internal
+    mem_limit: 512m
+    cpus: '0.5'
 
   backend:
     build:
@@ -46,6 +67,8 @@ services:
       DB_NAME: ${DB_NAME:-useful_pedagogue}
       DB_USER: ${DB_USER:-pedagogue}
       DB_PASSWORD: ${DB_PASSWORD}
+      # redis.js читает REDIS_URL; пароль передаётся в URL-виде
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?required}
@@ -62,14 +85,23 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 15s
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
     networks:
       - internal
+    mem_limit: 1g
+    cpus: '1'
 
   frontend:
     build:
@@ -80,11 +112,26 @@ services:
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
         VITE_PUSH_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
     container_name: useful-pedagogue-frontend
+    user: "101:101"
     depends_on:
       - backend
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=128m,uid=101,gid=101,mode=0700
+      - /var/run:size=16m,uid=101,gid=101,mode=0700
+      - /var/log/nginx:size=16m,uid=101,gid=101,mode=0700
+      - /tmp:size=16m,uid=101,gid=101,mode=0700
     networks:
       - internal
+    mem_limit: 256m
+    cpus: '0.5'
 
   admin-panel:
     build:
@@ -94,15 +141,31 @@ services:
         VITE_API_URL: ${VITE_API_URL:-/api}
         VITE_BASE_PATH: /
     container_name: useful-pedagogue-admin
+    user: "101:101"
     depends_on:
       - backend
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=128m,uid=101,gid=101,mode=0700
+      - /var/run:size=16m,uid=101,gid=101,mode=0700
+      - /var/log/nginx:size=16m,uid=101,gid=101,mode=0700
+      - /tmp:size=16m,uid=101,gid=101,mode=0700
     networks:
       - internal
+    mem_limit: 256m
+    cpus: '0.5'
 
   nginx:
     image: nginx:alpine
     container_name: useful-pedagogue-nginx
+    user: "101:101"
     ports:
       - "80:80"
       - "443:443"
@@ -116,8 +179,22 @@ services:
       - admin-panel
       - backend
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=128m,uid=101,gid=101,mode=0700
+      - /var/run:size=16m,uid=101,gid=101,mode=0700
+      - /var/log/nginx:size=16m,uid=101,gid=101,mode=0700
+      - /tmp:size=16m,uid=101,gid=101,mode=0700
     networks:
       - internal
+    mem_limit: 256m
+    cpus: '0.5'
 
 volumes:
   postgres_data:
