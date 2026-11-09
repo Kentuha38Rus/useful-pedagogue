@@ -18,6 +18,7 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.22.2",
@@ -32,14 +33,14 @@
     "pg-hstore": "^2.3.4",
     "redis": "^4.6.5",
     "sequelize": "^6.37.8",
+    "sequelize-cli": "^6.6.5",
     "socket.io": "^4.8.4",
     "web-push": "^3.6.6",
     "winston": "^3.10.0"
   },
   "devDependencies": {
     "@types/helmet": "^0.0.48",
-    "nodemon": "^3.0.1",
-    "sequelize-cli": "^6.6.5"
+    "nodemon": "^3.0.1"
   },
   "overrides": {
     "body-parser": "1.20.9",
