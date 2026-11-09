@@ -1,11 +1,12 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
+  withCredentials: true, // <--- ВАЖНО: Разрешаем браузеру отправлять и принимать httpOnly cookies
 });
 
 api.interceptors.request.use(
@@ -21,7 +22,7 @@ api.interceptors.request.use(
 
 const clearAuth = () => {
   localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('refreshToken'); // Чистим на всякий случай старые данные
   if (!window.location.pathname.includes('/login')) {
     window.location.href = '/login';
   }
@@ -31,10 +32,9 @@ let refreshPromise = null;
 const tryRefresh = async () => {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return false;
     try {
-      const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+      // refreshToken автоматически берется из httpOnly cookie браузером
+      const res = await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
       const newToken = res.data?.accessToken;
       if (newToken) {
         localStorage.setItem('token', newToken);
