@@ -8,7 +8,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 FROM node:20-slim
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y wget \
+# Обновляем пакеты ОС, чтобы закрыть уязвимости Debian
+RUN apt-get update && apt-get upgrade -y && apt-get install -y wget \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system app \
  && useradd --system --gid app app

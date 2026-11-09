@@ -33,14 +33,14 @@
     "pg-hstore": "^2.3.4",
     "redis": "^4.6.5",
     "sequelize": "^6.37.8",
-    "sequelize-cli": "^6.6.5",
     "socket.io": "^4.8.4",
     "web-push": "^3.6.6",
     "winston": "^3.10.0"
   },
   "devDependencies": {
     "@types/helmet": "^0.0.48",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "sequelize-cli": "^6.6.5"
   },
   "overrides": {
     "body-parser": "1.20.9",
