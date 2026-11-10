@@ -27,6 +27,7 @@ const Contacts = () => {
       </div>
 
       <div className={styles.mapContainer}>
+        {/* Карта OpenStreetMap может передавать IP-адрес пользователя в OSM. Это прописано в Политике. */}
         <iframe
           title="Карта центра"
           className={styles.mapIframe}
@@ -62,6 +63,14 @@ const Contacts = () => {
           <img src={`${BASE_URL}icons/Max_logo_black.svg`} alt="Max" className={styles.maxIcon} />
         </a>
       </div>
+
+      {/* Дополнительная ссылка на политику для удобства */}
+      <p style={{ marginTop: '20px', fontSize: '12px', color: '#888' }}>
+        Нажимая на иконки соцсетей, вы переходите к общению с представителем Центра. <br/>
+        <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: '#0077b6', textDecoration: 'underline' }}>
+          Политика обработки персональных данных
+        </a>
+      </p>
     </section>
   );
 };

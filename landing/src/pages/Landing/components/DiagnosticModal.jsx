@@ -94,11 +94,18 @@ const DiagnosticModal = ({ isOpen, onClose }) => {
           </div>
 
           <div className={styles.footerText}>
-            <p>Нажимая на иконку, вы соглашаетесь на обработку персональных данных</p>
-            <Button variant="secondary" onClick={onClose} className={styles.cancelBtn}>
-              Закрыть
-            </Button>
-          </div>
+              <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px', textAlign: 'center', lineHeight: '1.4' }}>
+                  Переходя по ссылкам в мессенджеры, вы вступаете в прямое общение с представителем Детского центра. 
+                  Отправляя сообщение, вы даете согласие на обработку ваших персональных данных в соответствии с{' '}
+                        {/* Используем обычный <a>, так как хотим открыть в новой вкладке */}
+                           <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: '#4A90E2', textDecoration: 'underline' }}>
+                                            Политикой конфиденциальности
+                           </a>.
+  </p>
+  <Button variant="secondary" onClick={onClose} className={styles.cancelBtn}>
+    Закрыть
+  </Button>
+</div>
         </div>
       </div>
     </div>

@@ -10,12 +10,17 @@ const CtaSection = ({ onDiagnosticClick }) => {
         <p>
           Запишитесь на бесплатную диагностику и узнайте, как мы можем помочь вашему ребёнку
         </p>
-        <button
+        
+        {/* Ошибка исправлена: убран внешний <button>, onClick перенесен на сам компонент Button */}
+        <Button 
+          variant="primary" 
+          size="large" 
           onClick={onDiagnosticClick}
           className={styles.ctaBtn}
         >
-          <Button variant="primary" size="large">Записаться на диагностику</Button>
-        </button>
+          Записаться на диагностику
+        </Button>
+        
       </div>
     </section>
   );

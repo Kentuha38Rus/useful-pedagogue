@@ -7,7 +7,21 @@ const Footer = () => {
   return (
     <footer className={styles.footer}>
       <div className={styles.content}>
-        <p>© 2026 Useful Pedagogue – Все права защищены</p>
+        {/* TODO: Убедитесь, что название центра указано верно */}
+        <p>© 2026 Детский центр «Полезный педагог» – Все права защищены</p>
+        
+        {/* Ссылка на политику конфиденциальности (Обязательно по 152-ФЗ) */}
+        <div style={{ margin: '15px 0', textAlign: 'center', fontSize: '14px' }}>
+          <a 
+            href="/privacy-policy" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ color: '#fff', textDecoration: 'underline', opacity: 0.8 }}
+          >
+            Политика в отношении обработки персональных данных
+          </a>
+        </div>
+
         <div className={styles.social}>
           <a
             href="https://vk.ru/pedagogef"
