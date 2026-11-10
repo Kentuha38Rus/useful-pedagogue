@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import Button from '../../../components/common/Button';
 import styles from './Hero.module.scss';
 
@@ -15,11 +14,13 @@ const Hero = ({ onDiagnosticClick }) => {
           и полный контроль успехов вашего ребёнка
         </p>
         <div className={styles.buttons}>
-          <Link to="/login">
+          
+          {/* ИСПРАВЛЕНО: Теперь это полноценная ссылка на поддомен app.juurnal.ru */}
+          <a href="https://app.juurnal.ru/login" style={{ textDecoration: 'none' }}>
             <Button variant="primary" size="large">
               Войти в личный кабинет
             </Button>
-          </Link>
+          </a>
 
           {/* 👇 outline: зелёная рамка + зелёный текст, hover — заливка */}
           <Button
