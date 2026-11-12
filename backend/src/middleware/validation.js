@@ -25,8 +25,9 @@ const schemas = {
   }).or('identifier', 'email', 'username'),
 
   refresh: Joi.object({
-    refreshToken: Joi.string().required(),
-  }),
+    // ИСПРАВЛЕНО: Делаем поле необязательным, так как токен приходит в httpOnly cookie
+    refreshToken: Joi.string().optional(), 
+  }).unknown(true), // Разрешаем пустой объект
 
   logout: Joi.object({
     refreshToken: Joi.string().optional(),

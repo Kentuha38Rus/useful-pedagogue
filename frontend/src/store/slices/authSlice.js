@@ -9,7 +9,7 @@ export const loadUser = createAsyncThunk('auth/loadUser', async (_, thunkAPI) =>
     return res.data;
   } catch (err) {
     localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    // refreshToken удален, так как он в httpOnly cookie и чистится браузером
     return thunkAPI.rejectWithValue(getErrorMessage(err, 'Не удалось загрузить пользователя'));
   }
 });
@@ -22,10 +22,12 @@ export const fetchChildren = createAsyncThunk('auth/fetchChildren', async () => 
 export const login = createAsyncThunk('auth/login', async (credentials, thunkAPI) => {
   try {
     const res = await api.post('/auth/login', credentials);
-    const { accessToken, refreshToken, user } = res.data;
+    const { accessToken, user } = res.data; 
+    
+    // ИСПРАВЛЕНО: Сохраняем только accessToken. 
+    // refreshToken сервер сам положил в безопасную httpOnly cookie.
     if (accessToken) localStorage.setItem('token', accessToken);
-    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-    // user из login уже содержит tenantSlug/tenantName/isPlatformAdmin
+    
     return user;
   } catch (err) {
     return thunkAPI.rejectWithValue(getErrorMessage(err, 'Ошибка входа'));
@@ -43,7 +45,6 @@ export const register = createAsyncThunk('auth/register', async (userData, thunk
 
 export const logout = createAsyncThunk('auth/logout', async () => {
   localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
   stopImpersonation();
   return null;
 });
@@ -97,19 +98,16 @@ const initialState = {
   courses: [],
   settings: { pushEnabled: true },
   isAuthenticated: false,
-  // Мультитенантность
-  tenant: null,            // { id, slug, name } — текущий тенант
-  isPlatformAdmin: false,  // role === 'platform_admin'
-  effectiveRole: null,     // 'admin' при имперсонации, иначе role
-  impersonation: initialImpersonation, // { id, name } | null
-  // UI-статусы
+  tenant: null,            
+  isPlatformAdmin: false,  
+  effectiveRole: null,     
+  impersonation: initialImpersonation, 
   loading: false,
   loginLoading: false,
   registerLoading: false,
   error: null,
 };
 
-// Хелпер: обновить tenant/isPlatformAdmin/effectiveRole/impersonation из user
 const applyUserToState = (state, user) => {
   state.user = user;
   state.isAuthenticated = !!user;
@@ -202,8 +200,6 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state) => {
         state.registerLoading = false;
-        // После регистрации пользователь не аутентифицирован (нет токенов).
-        // Авто-логин делает RegisterPage через dispatch(login(...)).
       })
       .addCase(register.rejected, (state, action) => {
         state.registerLoading = false;
