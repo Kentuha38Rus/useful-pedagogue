@@ -8,8 +8,7 @@ export const loadUser = createAsyncThunk('auth/loadUser', async (_, thunkAPI) =>
     const res = await api.get('/users/me');
     return res.data;
   } catch (err) {
-    localStorage.removeItem('token');
-    // refreshToken удален, так как он в httpOnly cookie и чистится браузером
+    // ИСПРАВЛЕНО: Не удаляем токен здесь. Если сессия мертва, api.js сам сделает редирект.
     return thunkAPI.rejectWithValue(getErrorMessage(err, 'Не удалось загрузить пользователя'));
   }
 });
@@ -23,11 +22,7 @@ export const login = createAsyncThunk('auth/login', async (credentials, thunkAPI
   try {
     const res = await api.post('/auth/login', credentials);
     const { accessToken, user } = res.data; 
-    
-    // ИСПРАВЛЕНО: Сохраняем только accessToken. 
-    // refreshToken сервер сам положил в безопасную httpOnly cookie.
     if (accessToken) localStorage.setItem('token', accessToken);
-    
     return user;
   } catch (err) {
     return thunkAPI.rejectWithValue(getErrorMessage(err, 'Ошибка входа'));
