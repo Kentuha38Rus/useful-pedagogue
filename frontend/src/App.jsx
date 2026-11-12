@@ -25,13 +25,16 @@ const PUBLIC_PATHS = ['/login'];
 function App() {
   const dispatch = useDispatch();
   const location = useLocation();
-  const { user, impersonation, isAuthenticated } = useSelector((s) => s.auth);
+  // ИСПРАВЛЕНО: Добавлен loading в useSelector
+  const { user, impersonation, isAuthenticated, loading } = useSelector((s) => s.auth);
+
+  const isPublic = PUBLIC_PATHS.includes(location.pathname);
 
   useEffect(() => {
-    if (!PUBLIC_PATHS.includes(location.pathname) && !user) {
+    if (!isPublic && !user) {
       dispatch(loadUser());
     }
-  }, [dispatch, location.pathname, user]);
+  }, [dispatch, isPublic, user]);
 
   useEffect(() => {
     if (user?.id && user?.role !== 'platform_admin') {
@@ -40,8 +43,14 @@ function App() {
     }
   }, [dispatch, user?.id, user?.role]);
 
-  const isPublic = PUBLIC_PATHS.includes(location.pathname);
-  const isPlatform = location.pathname.startsWith('/platform');
+  // ИСПРАВЛЕНО: Глобальный экран загрузки, чтобы избежать мигания страницы логина
+  if (loading && !isPublic) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', fontSize: '18px', color: '#666' }}>
+        Загрузка...
+      </div>
+    );
+  }
 
   // 1) Публичные страницы (только логин)
   if (isPublic) {
@@ -54,6 +63,7 @@ function App() {
   }
 
   // 2) platform_admin не должен попадать в /app
+  const isPlatform = location.pathname.startsWith('/platform');
   if (isAuthenticated && user?.role === 'platform_admin' && !isPlatform) {
     return <Navigate to="/platform" replace />;
   }

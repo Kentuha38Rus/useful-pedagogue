@@ -8,7 +8,6 @@ export const loadUser = createAsyncThunk('auth/loadUser', async (_, thunkAPI) =>
     const res = await api.get('/users/me');
     return res.data;
   } catch (err) {
-    // ИСПРАВЛЕНО: Не удаляем токен здесь. Если сессия мертва, api.js сам сделает редирект.
     return thunkAPI.rejectWithValue(getErrorMessage(err, 'Не удалось загрузить пользователя'));
   }
 });
@@ -97,7 +96,7 @@ const initialState = {
   isPlatformAdmin: false,  
   effectiveRole: null,     
   impersonation: initialImpersonation, 
-  loading: false,
+  loading: true, // ИСПРАВЛЕНО: Начальное значение true, чтобы предотвратить мигание
   loginLoading: false,
   registerLoading: false,
   error: null,
