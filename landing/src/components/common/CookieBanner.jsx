@@ -44,10 +44,7 @@ const CookieBanner = () => {
                         <a href={privacyUrl} target="_blank" rel="noopener noreferrer">
                             Политикой обработки персональных данных
                         </a>. 
-                    < br />
-            <span style={{ fontSize: '13px', color: '#666', marginTop: '4px', display: 'inline-block' }}>
-                    Если вы выберете «Только необходимые», мы не будем собирать данные о вашем поведении.
-             </span>
+                    
         </p>
         <div className={styles.actions}>
           {/* Кнопка "Принять" теперь стоит первой (слева) */}
