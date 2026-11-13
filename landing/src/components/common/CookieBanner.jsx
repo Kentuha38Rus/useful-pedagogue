@@ -50,11 +50,14 @@ const CookieBanner = () => {
              </span>
         </p>
         <div className={styles.actions}>
-          <button className={styles.declineBtn} onClick={handleDecline}>
-            Только необходимые
-          </button>
+          {/* Кнопка "Принять" теперь стоит первой (слева) */}
           <button className={styles.acceptBtn} onClick={handleAccept}>
             Принять все
+          </button>
+          
+          {/* Кнопка "Отклонить" теперь стоит второй (справа) */}
+          <button className={styles.declineBtn} onClick={handleDecline}>
+            Только необходимые
           </button>
         </div>
       </div>

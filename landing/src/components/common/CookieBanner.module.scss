@@ -4,7 +4,7 @@
   left: 0;
   width: 100%;
   background-color: #fff;
-  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.08); /* Чуть более мягкая тень */
   z-index: 9999;
   padding: 20px;
   display: flex;
@@ -17,17 +17,19 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 20px;
+    gap: 30px; /* Увеличили отступ между текстом и кнопками */
 
     p {
       margin: 0;
       font-size: 14px;
       color: #333;
-      line-height: 1.5;
+      line-height: 1.6;
+      max-width: 700px; /* Ограничиваем ширину текста для читаемости */
       
       a {
         color: #0077b6;
         text-decoration: underline;
+        font-weight: 500;
       }
     }
 
@@ -36,50 +38,43 @@
       gap: 12px;
       flex-shrink: 0;
 
+      /* Общие стили для ОБЕИХ кнопок */
       button {
-        /* Делаем одинаковый размер, чтобы выбор был равнозначным */
-        padding: 10px 24px;
+        padding: 12px 24px;
         border-radius: 8px;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        min-width: 170px; /* Фиксируем ширину */
-        transition: all 0.2s;
-        border: 1px solid transparent;
-
-        &:hover {
-          opacity: 0.8;
-        }
-      }
-
-      .declineBtn {
-        /* Прозрачный фон с серой рамкой */
-        background-color: transparent;
-        color: #555;
-        border: 1px solid #ccc;
+        min-width: 180px; /* Одинаковая ширина */
+        transition: all 0.2s ease;
+        border: 1px solid #4A90E2; /* Одинаковая рамка */
         
-        &:hover {
-          background-color: #f5f5f5;
-        }
-      }
-
-      .acceptBtn {
-        background-color: #4A90E2;
+        /* Одинаковый цвет фона и текста */
+        background-color: #4A90E2; 
         color: #fff;
+
+        &:hover {
+          background-color: #357ABD; /* Чуть темнее при наведении */
+          border-color: #357ABD;
+        }
+
+        &:active {
+          transform: scale(0.98); /* Легкий эффект нажатия */
+        }
       }
     }
   }
 
-  // Адаптив для мобилок
-  @media (max-width: 768px) {
+  // Адаптив для мобилок и планшетов
+  @media (max-width: 900px) {
     .content {
       flex-direction: column;
       align-items: flex-start;
+      gap: 20px;
 
       .actions {
         width: 100%;
         flex-direction: column;
-        margin-top: 10px;
 
         button {
           width: 100%;
