@@ -39,11 +39,15 @@ const CookieBanner = () => {
     <div className={styles.banner}>
       <div className={styles.content}>
         <p>
-          Мы используем файлы cookie для анализа трафика и улучшения работы сайта. 
-          Нажимая «Принять все», вы соглашаетесь с нашей{' '}
-          <a href={privacyUrl} target="_blank" rel="noopener noreferrer">
-            Политикой обработки персональных данных
-          </a>.
+            Мы используем файлы cookie для анализа трафика и улучшения работы сайта. 
+            Нажимая «Принять все», вы даете согласие на использование аналитических cookie в соответствии с нашей{' '}
+                        <a href={privacyUrl} target="_blank" rel="noopener noreferrer">
+                            Политикой обработки персональных данных
+                        </a>. 
+                    < br />
+            <span style={{ fontSize: '13px', color: '#666', marginTop: '4px', display: 'inline-block' }}>
+                    Если вы выберете «Только необходимые», мы не будем собирать данные о вашем поведении.
+             </span>
         </p>
         <div className={styles.actions}>
           <button className={styles.declineBtn} onClick={handleDecline}>

@@ -33,17 +33,19 @@
 
     .actions {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       flex-shrink: 0;
 
       button {
-        padding: 10px 20px;
+        /* Делаем одинаковый размер, чтобы выбор был равнозначным */
+        padding: 10px 24px;
         border-radius: 8px;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        border: none;
-        transition: opacity 0.2s;
+        min-width: 170px; /* Фиксируем ширину */
+        transition: all 0.2s;
+        border: 1px solid transparent;
 
         &:hover {
           opacity: 0.8;
@@ -51,8 +53,14 @@
       }
 
       .declineBtn {
-        background-color: #f0f0f0;
-        color: #333;
+        /* Прозрачный фон с серой рамкой */
+        background-color: transparent;
+        color: #555;
+        border: 1px solid #ccc;
+        
+        &:hover {
+          background-color: #f5f5f5;
+        }
       }
 
       .acceptBtn {
