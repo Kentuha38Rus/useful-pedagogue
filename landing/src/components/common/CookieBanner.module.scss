@@ -1,0 +1,82 @@
+.banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #fff;
+  box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid #eaeaea;
+
+  .content {
+    max-width: 1200px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      color: #333;
+      line-height: 1.5;
+      
+      a {
+        color: #0077b6;
+        text-decoration: underline;
+      }
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+
+      button {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: opacity 0.2s;
+
+        &:hover {
+          opacity: 0.8;
+        }
+      }
+
+      .declineBtn {
+        background-color: #f0f0f0;
+        color: #333;
+      }
+
+      .acceptBtn {
+        background-color: #4A90E2;
+        color: #fff;
+      }
+    }
+  }
+
+  // Адаптив для мобилок
+  @media (max-width: 768px) {
+    .content {
+      flex-direction: column;
+      align-items: flex-start;
+
+      .actions {
+        width: 100%;
+        flex-direction: column;
+        margin-top: 10px;
+
+        button {
+          width: 100%;
+        }
+      }
+    }
+  }
+}

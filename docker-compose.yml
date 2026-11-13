@@ -138,6 +138,10 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+        # 👇 ДОБАВЛЕНО ДЛЯ БАННЕРА COOKIE 👇
+        VITE_YANDEX_METRIKA_ID: ${VITE_YANDEX_METRIKA_ID:-}
+        VITE_PRIVACY_POLICY_URL: ${VITE_PRIVACY_POLICY_URL:-/privacy-policy}
+        # 👆 --------------------------------- 👆
     container_name: useful-pedagogue-landing
     user: "101:101"
     restart: unless-stopped
