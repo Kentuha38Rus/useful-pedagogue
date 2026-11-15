@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { subscribePush, onPushMessage } from '../utils/notifications';
 import { getSocket } from '../utils/socket';
@@ -7,45 +7,51 @@ const useNotifications = () => {
   const { settings, user } = useSelector((state) => state.auth);
   const [notifications, setNotifications] = useState([]);
 
-  // ----------------------------------------------------------------
-  // Автоподписка на push.
-  // Не подписываем platform_admin — у него нет tenantId.
-  // ----------------------------------------------------------------
-  useEffect(() => {
+  // Выносим синхронизацию в отдельную функцию
+  const syncSubscription = useCallback(async () => {
     const userId = user?.id;
     if (!userId) return;
-    if (user?.role === 'platform_admin') return; // ← ФИКС
+    if (user?.role === 'platform_admin') return;
+    if (settings?.pushEnabled === false) return;
 
-    if (settings?.pushEnabled === false) {
-      console.log('[push] auto-subscribe skipped (pushEnabled=false)');
+    // Проверяем, дал ли пользователь разрешение в браузере
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
       return;
     }
 
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const result = await subscribePush();
-        if (cancelled) return;
-        if (result?.ok) {
-          console.log('[push] auto-subscribed for user', userId);
-        } else {
-          console.warn(
-            '[push] auto-subscribe did not complete:',
-            result?.reason || 'unknown'
-          );
-        }
-      } catch (e) {
-        if (!cancelled) {
-          console.warn('[push] auto-subscribe error:', e);
-        }
+    try {
+      // subscribePush сам проверит наличие подписки и отправит её на бэкенд
+      const result = await subscribePush();
+      if (result?.ok) {
+        console.log('[push] background sync: subscription verified/restored');
       }
-    })();
+    } catch (e) {
+      console.warn('[push] background sync error:', e);
+    }
+  }, [user?.id, user?.role, settings?.pushEnabled]);
+
+  // 1. Первичная подписка при входе
+  useEffect(() => {
+    syncSubscription();
+  }, [syncSubscription]);
+
+  // 2. Синхронизация при возврате на вкладку (Self-Healing)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncSubscription();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Также добавляем фокус окна (для десктопа)
+    window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
-      cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
-  }, [user?.id, user?.role, settings?.pushEnabled]);
+  }, [syncSubscription]);
 
   // ----------------------------------------------------------------
   // Приём push и действий из Service Worker
@@ -75,12 +81,11 @@ const useNotifications = () => {
 
   // ----------------------------------------------------------------
   // Socket-уведомления (real-time)
-  // Не подключаем для platform_admin.
   // ----------------------------------------------------------------
   useEffect(() => {
     const userId = user?.id;
     if (!userId) return;
-    if (user?.role === 'platform_admin') return; // ← ФИКС
+    if (user?.role === 'platform_admin') return;
 
     const socket = getSocket(userId);
     if (!socket) return;
