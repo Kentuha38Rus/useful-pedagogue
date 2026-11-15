@@ -458,6 +458,7 @@ exports.sendLessonRemindersForLesson = async (req, res, next) => {
             {
               model: Child,
               as: 'children',
+              through: { attributes: [] }, // 👈 ИСПРАВЛЕНО: Добавлено для корректной загрузки детей
               include: [
                 { model: User, as: 'parent', attributes: ['id', 'name', 'email', 'role'] },
               ],
@@ -517,6 +518,7 @@ exports.sendLessonRemindersForToday = async (req, res, next) => {
             {
               model: Child,
               as: 'children',
+              through: { attributes: [] }, // 👈 ИСПРАВЛЕНО: Добавлено для корректной загрузки детей
               include: [
                 { model: User, as: 'parent', attributes: ['id', 'name', 'email', 'role'] },
               ],
