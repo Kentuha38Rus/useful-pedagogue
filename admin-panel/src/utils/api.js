@@ -6,6 +6,8 @@ const api = axios.create({
   baseURL: API_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
+  // refreshToken хранится в httpOnly cookie — браузер должен отправлять её сам
+  withCredentials: true,
 });
 
 // ---------------------------------------------------------------------------
@@ -39,11 +41,13 @@ const tryRefresh = async () => {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return false;
-
     try {
-      const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+      // refreshToken автоматически берётся из httpOnly cookie браузером
+      const res = await axios.post(
+        `${API_URL}/auth/refresh`,
+        {},
+        { withCredentials: true }
+      );
       const newToken = res.data?.accessToken;
       if (newToken) {
         localStorage.setItem('token', newToken);
@@ -53,7 +57,11 @@ const tryRefresh = async () => {
     } catch {
       return false;
     } finally {
-      refreshPromise = null;
+      // Держим блокировку 2 секунды, чтобы параллельные запросы не ушли
+      // со старым (уже отозванным) refresh-токеном, пока браузер сохраняет новый.
+      setTimeout(() => {
+        refreshPromise = null;
+      }, 2000);
     }
   })();
 

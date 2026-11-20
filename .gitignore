@@ -75,6 +75,7 @@ desktop.ini
 *.swo
 
 # ---- Временные / личные файлы ----
+CLAUDE.local.md
 register.json
 Подсказка/
 structure.txt

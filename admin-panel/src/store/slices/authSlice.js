@@ -12,9 +12,10 @@ export const login = createAsyncThunk(
   async ({ identifier, password }, thunkAPI) => {
     try {
       const res = await api.post('/auth/login', { identifier, password });
-      const { accessToken, refreshToken, user } = res.data;
+      const { accessToken, user } = res.data;
       if (accessToken) localStorage.setItem('token', accessToken);
-      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+      // refreshToken сервер хранит в httpOnly cookie, в localStorage его больше нет
+      localStorage.removeItem('refreshToken');
       return user;
     } catch (err) {
       return thunkAPI.rejectWithValue(getErrorMessage(err));
@@ -34,6 +35,13 @@ export const loadUser = createAsyncThunk('auth/loadUser', async (_, thunkAPI) =>
 });
 
 export const logout = createAsyncThunk('auth/logout', async () => {
+  try {
+    // Просим сервер стереть httpOnly cookie и отозвать refresh-токен
+    await api.post('/auth/logout');
+  } catch (err) {
+    // Если сервер недоступен, локально сессию всё равно закрываем
+    console.warn('Logout request failed:', err.message);
+  }
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
   return null;
