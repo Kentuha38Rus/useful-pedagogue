@@ -22,6 +22,14 @@ if [[ "$confirm" != [yY] && "$confirm" != [yY][eE][sS] ]]; then
 fi
 
 echo "[restore] Восстановление из $BACKUP_FILE..."
+
+# Backend держит соединения с БД — dropdb без остановки не пройдёт.
+# Гарантируем запуск обратно, даже если восстановление упадёт (set -e).
+restore_backend() { docker compose start backend >/dev/null 2>&1 || true; }
+trap restore_backend EXIT
+echo "[restore] Останавливаем backend..."
+docker compose stop backend
+
 docker compose exec -T postgres dropdb -U "${DB_USER:-pedagogue}" --if-exists "$DB_NAME"
 docker compose exec -T postgres createdb -U "${DB_USER:-pedagogue}" "$DB_NAME"
 

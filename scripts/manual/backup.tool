@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Папка для бэкапов (можно изменить)
-BACKUP_DIR="${BACKUP_DIR:-/opt/useful-pedagogue/backups}"
+# Важно: у пользователя deploy нет прав на /opt, поэтому дефолт — домашняя папка.
+BACKUP_DIR="${BACKUP_DIR:-$HOME/backups}"
 KEEP_DAYS="${KEEP_DAYS:-14}"
 TS="$(date +%Y%m%d_%H%M%S)"
 DB_NAME="${DB_NAME:-useful_pedagogue}"

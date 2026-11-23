@@ -33,7 +33,12 @@ docker compose run --rm backend npx sequelize-cli db:migrate
 
 Тестов в проекте нет — `npm test` не существует.
 
-`backend` содержит разрушительный скрипт `npm run clear:courses` (удаляет курсы и занятия). Сначала всегда `npm run clear:courses:dry`.
+`backend` содержит разрушительные скрипты. Порядок всегда такой: сначала `--dry-run`, потом удаление.
+
+- `npm run clear:courses:dry` → `npm run clear:courses` — курсы, группы, занятия, посещаемость;
+- `node src/scripts/reset-tenants.js --dry-run` → `--yes` — полная очистка базы: все пользователи, кроме `platform_admin`, все тенанты, кроме `default`. Одна транзакция, при несовпадении контрольных счётчиков — откат. На проде требует `ALLOW_DANGEROUS_SCRIPTS=1`.
+
+Правило для новых разрушительных скриптов: `--dry-run`, обязательный `--yes`, отказ при `NODE_ENV=production` без `ALLOW_DANGEROUS_SCRIPTS=1`, всё в одной транзакции и проверка счётчиков до `COMMIT`.
 
 ## Мультитенантность — главное правило
 
@@ -76,6 +81,22 @@ RLS включается только внутри `sequelize.transaction()` (`S
 - После деплоя по тегу сервер может быть в detached HEAD — проверять `git branch --show-current`.
 - Если менялись миграции — сначала `bash scripts/manual/backup.tool`, затем `docker compose run --rm backend npx sequelize-cli db:migrate`.
 - `docker compose down -v` удаляет данные — не использовать.
+
+## Обслуживание на сервере
+
+- Бэкап: `bash scripts/manual/backup.tool` — дампы кладутся в `/home/deploy/backups` (переопределяется через `BACKUP_DIR`; путь `/opt/useful-pedagogue/backups` пользователю `deploy` недоступен).
+- Проверка дампа без восстановления: `docker compose exec -T postgres pg_restore -l < <дамп> | head`.
+- Восстановление: `bash scripts/manual/restore.tool <дамп>` — скрипт сам останавливает `backend` перед `dropdb` и запускает обратно; без остановки живые подключения держат базу и `dropdb` не проходит.
+- Одноразовый скрипт из `backend/src/scripts/` не попадёт в контейнер до пересборки образа (bind-mount нет, backend `read_only`). Запуск без пересборки:
+
+  ```bash
+  docker compose run --rm \
+    -v "$PWD/backend/src/scripts:/app/src/scripts:ro" \
+    -e ALLOW_DANGEROUS_SCRIPTS=1 \
+    backend node src/scripts/<имя>.js --dry-run
+  ```
+
+  Если mount не сработал — `docker compose build backend`, затем та же команда без `-v`.
 
 ## Секреты
 
