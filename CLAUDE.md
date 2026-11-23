@@ -28,7 +28,7 @@ cd landing && npm run build
 cd frontend && npm run lint
 
 # Миграции — только с явного разрешения владельца
-docker compose run --rm backend npx sequelize-cli db:migrate
+docker compose run --rm backend node node_modules/sequelize-cli/lib/sequelize db:migrate
 ```
 
 Тестов в проекте нет — `npm test` не существует.
@@ -76,10 +76,11 @@ RLS включается только внутри `sequelize.transaction()` (`S
 - Пуш тега `v*` запускает деплой на прод (`.github/workflows/deploy.yml`).
 - CI (`.github/workflows/ci.yml`) проверяет синтаксис backend, собирает `frontend` и `admin-panel`, плюс docker-образы; `landing` в CI не участвует.
 - Сервер: проект в `/home/deploy/useful-pedagogue`.
-- Ручное обновление сервера (только по явной просьбе): `git status` → `git pull origin prod-hardening` → `docker compose up -d --build`.
+- Ручное обновление сервера (только по явной просьбе): `git status` → `git pull origin prod-hardening` → `docker compose up -d --build` → `docker compose exec nginx nginx -t` → `docker compose exec nginx nginx -s reload`.
+- nginx резолвит имена контейнеров один раз при старте/перезагрузке и кэширует их IP. После пересборки `frontend`, `admin-panel` или `backend` обязательно перезагружать nginx (`nginx -s reload`), иначе домены могут начать отдавать чужое приложение или 502. В `.github/workflows/deploy.yml` этот шаг выполняется автоматически.
 - На сервере не делать `git reset --hard`: локальные правки сохранять через `git stash`.
 - После деплоя по тегу сервер может быть в detached HEAD — проверять `git branch --show-current`.
-- Если менялись миграции — сначала `bash scripts/manual/backup.tool`, затем `docker compose run --rm backend npx sequelize-cli db:migrate`.
+- Если менялись миграции — сначала `bash scripts/manual/backup.tool`, затем `docker compose run --rm backend node node_modules/sequelize-cli/lib/sequelize db:migrate`.
 - `docker compose down -v` удаляет данные — не использовать.
 
 ## Обслуживание на сервере
