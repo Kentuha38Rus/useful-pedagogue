@@ -67,6 +67,7 @@ RLS включается только внутри `sequelize.transaction()` (`S
 - Мёртвые файлы, которые не нужно править: корневой `index.html`, `frontend/src/pages/Login/`, `frontend/src/pages/Auth/RegisterPage.jsx`. Живая страница входа — `frontend/src/pages/Auth/LoginPage.jsx`.
 - Смешанные соглашения: таблицы `Users`, `Groups`, `Courses` (camelCase) и `messages`, `notifications`, `push_subscriptions`, `lesson_responses` (snake_case).
 - `nginx/certs/renewal-hooks/deploy/fix-perms.sh` должен иметь mode `100755`; на Windows — `git update-index --chmod=+x`.
+- `admin-panel/public/service-worker.js` не удалять: это «файл-убийца» для устаревшего service worker от PWA. Если домены перепутаны и админка временно отдаёт личный кабинет, PWA регистрирует service worker на домене админки и после исправления маршрутизации продолжает показывать личный кабинет из кэша. Файл снимает такую регистрацию и чистит кэши.
 
 ## Git и деплой
 
