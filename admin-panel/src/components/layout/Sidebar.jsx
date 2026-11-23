@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
 import Button from '../common/Button';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen = false, onNavigate }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const unreadTotal = useSelector((state) => state.chat?.unreadTotal || 0);
@@ -26,12 +26,10 @@ const Sidebar = () => {
 
   return (
     <div
+      className={`admin-sidebar${isOpen ? ' is-open' : ''}`}
       style={{
-        width: '240px',
         backgroundColor: '#2c3e50',
         color: 'white',
-        minHeight: '100vh',
-        padding: '20px 0',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -43,6 +41,7 @@ const Sidebar = () => {
             key={item.to}
             to={item.to}
             end={item.to === '/'}
+            onClick={onNavigate}
             style={({ isActive }) => ({
               display: 'flex',
               justifyContent: 'space-between',

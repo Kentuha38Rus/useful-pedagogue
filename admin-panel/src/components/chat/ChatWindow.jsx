@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
   fetchMessages,
   sendMessage,
@@ -34,13 +34,20 @@ const extractChatId = (params, pathname) => {
 const ChatWindow = () => {
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const chatId = extractChatId(params, location.pathname);
 
-  const { messages, loading } = useSelector((state) => state.chat);
+  const { messages, loading, dialogs } = useSelector((state) => state.chat);
   const myUserId = useSelector((state) => state.auth.user?.id);
   const messagesEndRef = useRef(null);
+
+  // Имя собеседника для шапки диалога на телефоне
+  const currentDialog = (dialogs || []).find(
+    (d) => String(d.chat_id) === String(chatId)
+  );
+  const dialogTitle = currentDialog?.other_user?.name || 'Диалог';
 
   const otherUserId = chatId ? getOtherUserId(chatId, myUserId) : null;
 
@@ -84,9 +91,8 @@ const ChatWindow = () => {
   if (!chatId) {
     return (
       <div
+        className="chat-window"
         style={{
-          flex: 1,
-          display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           color: '#94a3b8',
@@ -99,15 +105,19 @@ const ChatWindow = () => {
   }
 
   return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#f8fafc',
-        minWidth: 0,
-      }}
-    >
+    <div className="chat-window">
+      <div className="chat-header">
+        <button
+          type="button"
+          className="chat-back"
+          aria-label="Назад к списку диалогов"
+          onClick={() => navigate('/chats')}
+        >
+          ←
+        </button>
+        <div className="chat-header__title">{dialogTitle}</div>
+      </div>
+
       <div
         style={{
           flex: 1,
@@ -167,6 +177,7 @@ const ChatWindow = () => {
               }}
             >
               <div
+                className="message-bubble"
                 style={{
                   maxWidth: '70%',
                   padding: '8px 12px',

@@ -10,7 +10,7 @@ import CoursesPage from '../pages/Courses/CoursesPage';
 import PaymentsPage from '../pages/Payments/PaymentsPage';
 import SalaryPage from '../pages/Salary/SalaryPage';
 import ChatsPage from '../pages/Chats/ChatsPage';
-import Sidebar from '../components/layout/Sidebar';
+import AdminLayout from '../components/layout/AdminLayout';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading, initialized } = useSelector(
@@ -29,13 +29,6 @@ const PrivateRoute = ({ children }) => {
 
   return children;
 };
-
-const AdminLayout = ({ children }) => (
-  <div style={{ display: 'flex', width: '100%' }}>
-    <Sidebar />
-    <div style={{ flex: 1, padding: '20px', minWidth: 0 }}>{children}</div>
-  </div>
-);
 
 const AppRouter = () => {
   return (

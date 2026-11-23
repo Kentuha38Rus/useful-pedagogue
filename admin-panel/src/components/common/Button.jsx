@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Button = ({ children, variant = 'primary', ...props }) => {
+const Button = ({ children, variant = 'primary', className = '', ...props }) => {
   const styles = {
     primary: { backgroundColor: '#4A90E2', color: 'white' },
     danger: { backgroundColor: '#E74C3C', color: 'white' },
@@ -11,6 +11,7 @@ const Button = ({ children, variant = 'primary', ...props }) => {
   return (
     <button
       {...props}
+      className={`btn btn--${variant}${className ? ` ${className}` : ''}`}
       style={{
         padding: '8px 16px',
         border: 'none',

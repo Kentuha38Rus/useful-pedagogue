@@ -29,10 +29,12 @@ const LoginPage = () => {
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: '100vh',
+    padding: '16px',
     background: '#f0f2f5',
   };
   const cardStyle = {
-    width: '400px',
+    width: '100%',
+    maxWidth: '400px',
     padding: '30px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     background: 'white',

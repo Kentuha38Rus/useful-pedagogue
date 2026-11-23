@@ -28,9 +28,8 @@ const ChatList = () => {
   if (!dialogs || dialogs.length === 0) {
     return (
       <div
+        className="chat-list"
         style={{
-          width: 320,
-          borderRight: '1px solid #e2e8f0',
           padding: 20,
           color: '#94a3b8',
           fontSize: 14,
@@ -42,14 +41,7 @@ const ChatList = () => {
   }
 
   return (
-    <div
-      style={{
-        width: 320,
-        borderRight: '1px solid #e2e8f0',
-        overflowY: 'auto',
-        background: '#fff',
-      }}
-    >
+    <div className="chat-list">
       {dialogs.map((dialog) => {
         const other = dialog.other_user || {};
         const last = dialog.last_message;

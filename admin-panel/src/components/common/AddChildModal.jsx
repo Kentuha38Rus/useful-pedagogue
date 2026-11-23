@@ -46,7 +46,7 @@ const AddChildModal = ({ isOpen, onClose, groupId, onChildAdded }) => {
   return (
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <Card style={{ padding: '20px', minWidth: '400px' }}>
+        <Card className="modal-card" style={{ padding: '20px' }}>
           <h3>Добавить ребенка в группу</h3>
           {error && <p style={{ color: 'red' }}>{error}</p>}
           <div style={{ marginBottom: '15px' }}>
@@ -97,12 +97,17 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: '16px',
     zIndex: 999,
   },
   modal: {
     background: 'white',
     borderRadius: '8px',
     padding: '0',
+    width: '100%',
+    maxWidth: '400px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
   },
 };
 

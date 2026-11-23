@@ -1,0 +1,522 @@
+/* =========================================================
+   Адаптивность админ-панели (телефон / планшет).
+   Десктопный вид не меняется: все правки для узкого экрана
+   собраны в @media (max-width: 768px) внизу файла.
+   ========================================================= */
+
+/* ---------- Каркас ---------- */
+.admin-shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.admin-content {
+  flex: 1;
+  padding: 20px;
+  min-width: 0;
+}
+
+/* Верхняя мобильная полоса: на десктопе её нет */
+.mobile-bar {
+  display: none;
+}
+
+/* ---------- Боковое меню ---------- */
+.admin-sidebar {
+  width: 240px;
+  flex: 0 0 240px;
+  min-height: 100vh;
+  padding: 20px 0;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+/* ---------- Таблицы ---------- */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Элемент, который виден только на телефоне */
+.only-mobile {
+  display: none;
+}
+
+/* ---------- Чат ---------- */
+.chat-page {
+  display: flex;
+  height: calc(100vh - 40px);
+  height: calc(100dvh - 40px);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.chat-page .chat-list {
+  width: 320px;
+  flex: 0 0 320px;
+  border-right: 1px solid #e2e8f0;
+  overflow-y: auto;
+  background: #fff;
+}
+
+.chat-page .chat-window {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  min-width: 0;
+}
+
+.chat-header,
+.chat-back {
+  display: none;
+}
+
+/* ---------- Общие блоки страниц ---------- */
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.pager {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.salary-totals {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================
+   Телефон и узкий планшет
+   ========================================================= */
+@media (max-width: 768px) {
+  /* --- Каркас: шапка с бургером + обычный поток --- */
+  .admin-shell {
+    display: block;
+  }
+
+  .admin-content {
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 110;
+    height: calc(56px + env(safe-area-inset-top));
+    padding: 0 12px;
+    padding-top: env(safe-area-inset-top);
+    background: #2c3e50;
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.22);
+  }
+
+  .mobile-bar__menu {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .mobile-bar__menu:active {
+    background: rgba(255, 255, 255, 0.28);
+  }
+
+  .mobile-bar__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* --- Меню: выезжает поверх контента --- */
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 78vw;
+    max-width: 300px;
+    flex-basis: auto;
+    min-height: 100dvh;
+    padding-top: calc(20px + env(safe-area-inset-top));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 1000;
+    box-shadow: 0 0 24px rgba(15, 23, 42, 0.35);
+  }
+
+  .admin-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 999;
+    animation: sidebarFade 0.2s ease;
+  }
+
+  @keyframes sidebarFade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* --- Тексты и элементы управления --- */
+  h1 {
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  h3 {
+    font-size: 16px;
+  }
+
+  /* 16px в полях — иначе iPhone сам приближает страницу при нажатии */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Кнопки удобного размера для пальца */
+  .btn {
+    min-height: 44px;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Заголовок страницы и кнопка действия — в две строки, кнопка на всю ширину */
+  .page-head h1 {
+    margin-bottom: 0;
+  }
+
+  .page-head > .btn {
+    width: 100%;
+  }
+
+  .filters input,
+  .filters select {
+    width: 100%;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modal-card {
+    max-width: 100%;
+  }
+
+  .salary-totals {
+    gap: 16px;
+  }
+
+  /* --- Таблицы превращаются в карточки --- */
+  .data-table {
+    background: transparent !important;
+  }
+
+  .data-table thead {
+    display: none;
+  }
+
+  .data-table,
+  .data-table tbody,
+  .data-table tr,
+  .data-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .data-table tbody tr {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  }
+
+  .data-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 !important;
+    border: none !important;
+    text-align: right !important;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .data-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    max-width: 48%;
+    text-align: left;
+    color: #64748b;
+    font-size: 13px;
+  }
+
+  .data-table td:not([data-label])::before,
+  .data-table td[data-label=""]::before {
+    content: none;
+  }
+
+  /* Ячейка с кнопками — отдельным блоком под остальными */
+  .data-table td.cell-actions {
+    display: block !important;
+    text-align: left !important;
+    padding-top: 10px !important;
+  }
+
+  .data-table td.cell-actions::before {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* Стрелка раскрытия в таблице зарплаты на телефоне не нужна */
+  .data-table td.cell-expand {
+    display: none !important;
+  }
+
+  .data-table td.cell-expanded {
+    display: block !important;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  .data-table tr.row-expanded-details {
+    background: transparent;
+    border: none;
+    border-bottom: none !important;
+    box-shadow: none;
+    padding: 0 0 4px;
+  }
+
+  /* Вложенная таблица занятий — компактные карточки в две колонки */
+  .data-table--nested,
+  .data-table--nested tbody {
+    display: block;
+  }
+
+  .data-table--nested tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    padding: 12px;
+    box-shadow: none;
+  }
+
+  .data-table--nested tbody tr {
+    margin-bottom: 8px;
+  }
+
+  .data-table--nested td {
+    display: block !important;
+    text-align: left !important;
+    padding: 0 !important;
+    font-size: 13px !important;
+  }
+
+  .data-table--nested td::before {
+    display: block;
+    margin-bottom: 2px;
+    max-width: none;
+    color: #94a3b8;
+    font-size: 11px;
+  }
+
+  .data-table--nested td.cell-span-2 {
+    grid-column: 1 / -1;
+  }
+
+  /* --- Чат: один экран вместо двух --- */
+  .chat-page {
+    height: calc(
+      100dvh - 56px - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    );
+    border-radius: 10px;
+  }
+
+  .chat-page .chat-list {
+    width: 100%;
+    flex: 1 1 auto;
+    border-right: none;
+  }
+
+  .chat-page .chat-window {
+    display: none;
+  }
+
+  .chat-page.chat-page--open .chat-list {
+    display: none;
+  }
+
+  .chat-page.chat-page--open .chat-window {
+    display: flex;
+  }
+
+  .chat-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+  }
+
+  .chat-header__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border: none;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .chat-page .message-bubble {
+    max-width: 85% !important;
+  }
+
+  .message-input {
+    padding: 8px !important;
+  }
+
+  .message-send {
+    padding: 10px 14px !important;
+  }
+
+  .only-mobile {
+    display: inline;
+  }
+
+  /* --- Дашборд --- */
+  .dash-card {
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  .dash-card-header {
+    gap: 10px !important;
+  }
+
+  .dash-card-value {
+    font-size: 26px !important;
+  }
+
+  .dash-lesson-row {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .dash-notify-btn {
+    min-height: 40px;
+    padding: 8px 14px !important;
+  }
+
+  /* --- Расписание группы --- */
+  .schedule-row {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+
+  .schedule-row label {
+    min-width: 0 !important;
+    flex: 1 1 100%;
+  }
+}

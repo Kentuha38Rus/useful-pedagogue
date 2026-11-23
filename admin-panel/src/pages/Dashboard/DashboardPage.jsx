@@ -365,7 +365,7 @@ const DashboardPage = () => {
                 <div style={{ fontSize: 15, fontWeight: 600, opacity: 0.95, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {card.label}
                 </div>
-                <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, textAlign: 'right', flexShrink: 0 }}>
+                <div className="dash-card-value" style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, textAlign: 'right', flexShrink: 0 }}>
                   {card.value}
                 </div>
                 <div

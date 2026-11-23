@@ -1,9 +1,10 @@
 import React from 'react';
 
-const Input = ({ ...props }) => {
+const Input = ({ className = '', ...props }) => {
   return (
     <input
       {...props}
+      className={`input${className ? ` ${className}` : ''}`}
       style={{
         width: '100%',
         padding: '8px',

@@ -41,7 +41,7 @@ const CoursesPage = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-head">
         <h1>Курсы</h1>
         <Button onClick={() => setShowForm(!showForm)}>
           {showForm ? 'Отмена' : '+ Создать курс'}
@@ -62,7 +62,7 @@ const CoursesPage = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div className="form-row">
               <Input
                 type="number"
                 placeholder="Минимальный возраст (лет)"

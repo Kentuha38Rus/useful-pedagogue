@@ -66,7 +66,7 @@ const UsersPage = () => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-head">
         <h1>Пользователи</h1>
         <Button onClick={() => setShowCreateUser(true)}>+ Создать пользователя</Button>
       </div>
@@ -131,7 +131,7 @@ const UsersPage = () => {
         </Card>
       )}
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      <div className="filters">
         <input
           type="text"
           placeholder="Поиск по имени, логину или email"
@@ -151,50 +151,52 @@ const UsersPage = () => {
         <div>Загрузка...</div>
       ) : (
         <>
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white' }}>
-            <thead>
-              <tr style={{ background: '#f0f2f5' }}>
-                <th>Имя</th>
-                <th>Логин</th>
-                <th>Email</th>
-                <th>Роль</th>
-                <th>Телефон</th>
-                <th>Детей</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.users.map((user) => (
-                <tr key={user.id} style={{ borderBottom: '1px solid #ddd' }}>
-                  <td>{user.name}</td>
-                  <td>{user.username}</td>
-                  <td>{user.email || '-'}</td>
-                  <td>{user.role}</td>
-                  <td>{user.phone || '-'}</td>
-                  <td>{user.children?.length || 0}</td>
-                  <td>
-                    <select
-                      value={user.role}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                      style={{ padding: '4px', marginRight: '8px' }}
-                    >
-                      <option value="admin">Админ</option>
-                      <option value="teacher">Учитель</option>
-                      <option value="parent">Родитель</option>
-                    </select>
-                    <Button
-                      variant="danger"
-                      size="small"
-                      onClick={() => handleDeleteUser(user.id, user.name)}
-                    >
-                      Удалить
-                    </Button>
-                  </td>
+          <div className="table-scroll">
+            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', background: 'white' }}>
+              <thead>
+                <tr style={{ background: '#f0f2f5' }}>
+                  <th>Имя</th>
+                  <th>Логин</th>
+                  <th>Email</th>
+                  <th>Роль</th>
+                  <th>Телефон</th>
+                  <th>Детей</th>
+                  <th>Действия</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between' }}>
+              </thead>
+              <tbody>
+                {users.users.map((user) => (
+                  <tr key={user.id} style={{ borderBottom: '1px solid #ddd' }}>
+                    <td data-label="Имя">{user.name}</td>
+                    <td data-label="Логин">{user.username}</td>
+                    <td data-label="Email">{user.email || '-'}</td>
+                    <td data-label="Роль">{user.role}</td>
+                    <td data-label="Телефон">{user.phone || '-'}</td>
+                    <td data-label="Детей">{user.children?.length || 0}</td>
+                    <td className="cell-actions" data-label="Действия">
+                      <select
+                        value={user.role}
+                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                        style={{ padding: '4px', marginRight: '8px' }}
+                      >
+                        <option value="admin">Админ</option>
+                        <option value="teacher">Учитель</option>
+                        <option value="parent">Родитель</option>
+                      </select>
+                      <Button
+                        variant="danger"
+                        size="small"
+                        onClick={() => handleDeleteUser(user.id, user.name)}
+                      >
+                        Удалить
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="pager">
             <Button onClick={prevPage} disabled={page === 1}>Назад</Button>
             <span>Страница {page} из {users.totalPages}</span>
             <Button onClick={nextPage} disabled={page === users.totalPages}>Вперёд</Button>

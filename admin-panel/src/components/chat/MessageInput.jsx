@@ -19,6 +19,7 @@ const MessageInput = ({ onSend }) => {
 
   return (
     <div
+      className="message-input"
       style={{
         display: 'flex',
         gap: 8,
@@ -44,6 +45,7 @@ const MessageInput = ({ onSend }) => {
       />
       <button
         type="button"
+        className="message-send"
         onClick={handleSubmit}
         disabled={!text.trim()}
         style={{

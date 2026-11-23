@@ -300,13 +300,7 @@ const GroupsPage = () => {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
+      <div className="page-head">
         <h1>Группы</h1>
         <Button
           type="button"
@@ -399,6 +393,7 @@ const GroupsPage = () => {
                 return (
                   <div
                     key={d.key}
+                    className="schedule-row"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -462,7 +457,7 @@ const GroupsPage = () => {
                 Студентов: {group.children?.length || 0} / {group.maxStudents}
               </p>
               <GroupLessonsList lessons={group.lessons} />
-              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <div className="card-actions">
                 <Button
                   type="button"
                   variant="primary"

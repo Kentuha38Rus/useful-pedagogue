@@ -213,7 +213,7 @@ const SalaryPage = () => {
       {salary.teachers.length > 0 && (
         <>
           <Card style={{ marginBottom: '20px', padding: '20px', background: '#f0f7ff' }}>
-            <div style={{ display: 'flex', gap: '40px' }}>
+            <div className="salary-totals">
               <div>
                 <div style={{ fontSize: '13px', color: '#555' }}>Общий доход</div>
                 <div style={{ fontSize: '22px', fontWeight: 600 }}>
@@ -229,195 +229,225 @@ const SalaryPage = () => {
             </div>
           </Card>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white' }}>
-            <thead>
-              <tr style={{ background: '#f0f2f5' }}>
-                <th style={{ padding: '10px', width: '20px' }}></th>
-                <th style={{ padding: '10px', textAlign: 'left' }}>Преподаватель</th>
-                <th style={{ padding: '10px', textAlign: 'right' }}>Занятий</th>
-                <th style={{ padding: '10px', textAlign: 'right' }}>Присутствий</th>
-                <th style={{ padding: '10px', textAlign: 'right' }}>Доход, ₽</th>
-                <th style={{ padding: '10px', textAlign: 'right' }}>Зарплата, ₽</th>
-                <th style={{ padding: '10px', textAlign: 'center' }}>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {salary.teachers.map((t) => (
-                <React.Fragment key={t.teacherId}>
-                  <tr style={{ borderBottom: '1px solid #ddd' }}>
-                    <td
-                      style={{ padding: '10px', cursor: 'pointer' }}
-                      onClick={() => toggleTeacher(t.teacherId)}
-                    >
-                      {expandedTeacher === t.teacherId ? '▼' : '▶'}
-                    </td>
-                    <td
-                      style={{ padding: '10px', cursor: 'pointer' }}
-                      onClick={() => toggleTeacher(t.teacherId)}
-                    >
-                      <b>{t.teacherName}</b>
-                      {t.teacherEmail && (
-                        <div style={{ fontSize: '12px', color: '#888' }}>{t.teacherEmail}</div>
-                      )}
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'right' }}>{t.lessonsCount}</td>
-                    <td style={{ padding: '10px', textAlign: 'right' }}>{t.presentCount}</td>
-                    <td style={{ padding: '10px', textAlign: 'right' }}>
-                      {t.revenue.toLocaleString('ru-RU')}
-                    </td>
-                    <td
-                      style={{
-                        padding: '10px',
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        color: '#27ae60',
-                      }}
-                    >
-                      {t.salary.toLocaleString('ru-RU')}
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="small"
-                        onClick={() => handlePrint(t)}
-                      >
-                        🖨 Печать
-                      </Button>
-                    </td>
-                  </tr>
-
-                  {expandedTeacher === t.teacherId && (
-                    <tr>
+          <div className="table-scroll">
+            <table
+              className="data-table"
+              style={{ width: '100%', borderCollapse: 'collapse', background: 'white' }}
+            >
+              <thead>
+                <tr style={{ background: '#f0f2f5' }}>
+                  <th style={{ padding: '10px', width: '20px' }}></th>
+                  <th style={{ padding: '10px', textAlign: 'left' }}>Преподаватель</th>
+                  <th style={{ padding: '10px', textAlign: 'right' }}>Занятий</th>
+                  <th style={{ padding: '10px', textAlign: 'right' }}>Присутствий</th>
+                  <th style={{ padding: '10px', textAlign: 'right' }}>Доход, ₽</th>
+                  <th style={{ padding: '10px', textAlign: 'right' }}>Зарплата, ₽</th>
+                  <th style={{ padding: '10px', textAlign: 'center' }}>Действия</th>
+                </tr>
+              </thead>
+              <tbody>
+                {salary.teachers.map((t) => (
+                  <React.Fragment key={t.teacherId}>
+                    <tr style={{ borderBottom: '1px solid #ddd' }}>
                       <td
-                        colSpan={7}
-                        style={{ padding: '0 10px 15px 30px', background: '#fafafa' }}
+                        className="cell-expand"
+                        style={{ padding: '10px', cursor: 'pointer' }}
+                        onClick={() => toggleTeacher(t.teacherId)}
                       >
-                        <table
-                          style={{
-                            width: '100%',
-                            borderCollapse: 'collapse',
-                            marginTop: '10px',
-                          }}
+                        {expandedTeacher === t.teacherId ? '▼' : '▶'}
+                      </td>
+                      <td
+                        data-label="Преподаватель"
+                        style={{ padding: '10px', cursor: 'pointer' }}
+                        onClick={() => toggleTeacher(t.teacherId)}
+                      >
+                        <span className="only-mobile" aria-hidden="true">
+                          {expandedTeacher === t.teacherId ? '▼ ' : '▶ '}
+                        </span>
+                        <b>{t.teacherName}</b>
+                        {t.teacherEmail && (
+                          <div style={{ fontSize: '12px', color: '#888' }}>{t.teacherEmail}</div>
+                        )}
+                      </td>
+                      <td data-label="Занятий" style={{ padding: '10px', textAlign: 'right' }}>
+                        {t.lessonsCount}
+                      </td>
+                      <td data-label="Присутствий" style={{ padding: '10px', textAlign: 'right' }}>
+                        {t.presentCount}
+                      </td>
+                      <td data-label="Доход, ₽" style={{ padding: '10px', textAlign: 'right' }}>
+                        {t.revenue.toLocaleString('ru-RU')}
+                      </td>
+                      <td
+                        data-label="Зарплата, ₽"
+                        style={{
+                          padding: '10px',
+                          textAlign: 'right',
+                          fontWeight: 600,
+                          color: '#27ae60',
+                        }}
+                      >
+                        {t.salary.toLocaleString('ru-RU')}
+                      </td>
+                      <td className="cell-actions" data-label="Действия" style={{ padding: '10px', textAlign: 'center' }}>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="small"
+                          onClick={() => handlePrint(t)}
                         >
-                          <thead>
-                            <tr style={{ background: '#eee' }}>
-                              <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
-                                Дата
-                              </th>
-                              <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
-                                Время
-                              </th>
-                              <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
-                                Группа
-                              </th>
-                              <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
-                                Курс
-                              </th>
-                              <th
-                                style={{
-                                  padding: '6px',
-                                  textAlign: 'right',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                Цена
-                              </th>
-                              <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
-                                Дети (статус)
-                              </th>
-                              <th
-                                style={{
-                                  padding: '6px',
-                                  textAlign: 'right',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                Доход
-                              </th>
-                              <th
-                                style={{
-                                  padding: '6px',
-                                  textAlign: 'right',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                Зарплата
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {t.details.map((d, idx) => (
-                              <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                                <td style={{ padding: '6px', fontSize: '12px' }}>{d.date}</td>
-                                <td style={{ padding: '6px', fontSize: '12px' }}>
-                                  {(d.startTime || '').slice(0, 5)}–
-                                  {(d.endTime || '').slice(0, 5)}
-                                </td>
-                                <td style={{ padding: '6px', fontSize: '12px' }}>{d.groupName}</td>
-                                <td style={{ padding: '6px', fontSize: '12px' }}>{d.courseName}</td>
-                                <td
-                                  style={{
-                                    padding: '6px',
-                                    textAlign: 'right',
-                                    fontSize: '12px',
-                                  }}
-                                >
-                                  {d.price}
-                                </td>
-                                <td style={{ padding: '6px', fontSize: '12px' }}>
-                                  {d.presentStudents && d.presentStudents.length > 0 && (
-                                    <div style={{ color: '#27ae60' }}>
-                                      ✅ {d.presentStudents.join(', ')}
-                                    </div>
-                                  )}
-                                  {d.lateStudents && d.lateStudents.length > 0 && (
-                                    <div style={{ color: '#e67e22' }}>
-                                      ⏰ {d.lateStudents.join(', ')}
-                                    </div>
-                                  )}
-                                  {d.absentStudents && d.absentStudents.length > 0 && (
-                                    <div style={{ color: '#c0392b' }}>
-                                      ❌ {d.absentStudents.join(', ')}
-                                    </div>
-                                  )}
-                                  {(!d.presentStudents || d.presentStudents.length === 0) &&
-                                    (!d.lateStudents || d.lateStudents.length === 0) &&
-                                    (!d.absentStudents || d.absentStudents.length === 0) && (
-                                      <span style={{ color: '#999' }}>не отмечено</span>
-                                    )}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '6px',
-                                    textAlign: 'right',
-                                    fontSize: '12px',
-                                  }}
-                                >
-                                  {d.revenue.toLocaleString('ru-RU')}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: '6px',
-                                    textAlign: 'right',
-                                    fontSize: '12px',
-                                    color: '#27ae60',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {d.salary.toLocaleString('ru-RU')}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                          🖨 Печать
+                        </Button>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+
+                    {expandedTeacher === t.teacherId && (
+                      <tr className="row-expanded-details">
+                        <td
+                          colSpan={7}
+                          className="cell-expanded"
+                          style={{ padding: '0 10px 15px 30px', background: '#fafafa' }}
+                        >
+                          <table
+                            className="data-table data-table--nested"
+                            style={{
+                              width: '100%',
+                              borderCollapse: 'collapse',
+                              marginTop: '10px',
+                            }}
+                          >
+                            <thead>
+                              <tr style={{ background: '#eee' }}>
+                                <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
+                                  Дата
+                                </th>
+                                <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
+                                  Время
+                                </th>
+                                <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
+                                  Группа
+                                </th>
+                                <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
+                                  Курс
+                                </th>
+                                <th
+                                  style={{
+                                    padding: '6px',
+                                    textAlign: 'right',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  Цена
+                                </th>
+                                <th style={{ padding: '6px', textAlign: 'left', fontSize: '12px' }}>
+                                  Дети (статус)
+                                </th>
+                                <th
+                                  style={{
+                                    padding: '6px',
+                                    textAlign: 'right',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  Доход
+                                </th>
+                                <th
+                                  style={{
+                                    padding: '6px',
+                                    textAlign: 'right',
+                                    fontSize: '12px',
+                                  }}
+                                >
+                                  Зарплата
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {t.details.map((d, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                  <td data-label="Дата" style={{ padding: '6px', fontSize: '12px' }}>
+                                    {d.date}
+                                  </td>
+                                  <td data-label="Время" style={{ padding: '6px', fontSize: '12px' }}>
+                                    {(d.startTime || '').slice(0, 5)}–
+                                    {(d.endTime || '').slice(0, 5)}
+                                  </td>
+                                  <td data-label="Группа" style={{ padding: '6px', fontSize: '12px' }}>
+                                    {d.groupName}
+                                  </td>
+                                  <td data-label="Курс" style={{ padding: '6px', fontSize: '12px' }}>
+                                    {d.courseName}
+                                  </td>
+                                  <td
+                                    data-label="Цена"
+                                    style={{
+                                      padding: '6px',
+                                      textAlign: 'right',
+                                      fontSize: '12px',
+                                    }}
+                                  >
+                                    {d.price}
+                                  </td>
+                                  <td
+                                    data-label="Дети (статус)"
+                                    className="cell-span-2"
+                                    style={{ padding: '6px', fontSize: '12px' }}
+                                  >
+                                    {d.presentStudents && d.presentStudents.length > 0 && (
+                                      <div style={{ color: '#27ae60' }}>
+                                        ✅ {d.presentStudents.join(', ')}
+                                      </div>
+                                    )}
+                                    {d.lateStudents && d.lateStudents.length > 0 && (
+                                      <div style={{ color: '#e67e22' }}>
+                                        ⏰ {d.lateStudents.join(', ')}
+                                      </div>
+                                    )}
+                                    {d.absentStudents && d.absentStudents.length > 0 && (
+                                      <div style={{ color: '#c0392b' }}>
+                                        ❌ {d.absentStudents.join(', ')}
+                                      </div>
+                                    )}
+                                    {(!d.presentStudents || d.presentStudents.length === 0) &&
+                                      (!d.lateStudents || d.lateStudents.length === 0) &&
+                                      (!d.absentStudents || d.absentStudents.length === 0) && (
+                                        <span style={{ color: '#999' }}>не отмечено</span>
+                                      )}
+                                  </td>
+                                  <td
+                                    data-label="Доход"
+                                    style={{
+                                      padding: '6px',
+                                      textAlign: 'right',
+                                      fontSize: '12px',
+                                    }}
+                                  >
+                                    {d.revenue.toLocaleString('ru-RU')}
+                                  </td>
+                                  <td
+                                    data-label="Зарплата"
+                                    style={{
+                                      padding: '6px',
+                                      textAlign: 'right',
+                                      fontSize: '12px',
+                                      color: '#27ae60',
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {d.salary.toLocaleString('ru-RU')}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>

@@ -1,19 +1,14 @@
 import React from 'react';
+import { useParams } from 'react-router-dom';
 import ChatList from '../../components/chat/ChatList';
 import ChatWindow from '../../components/chat/ChatWindow';
 
 const ChatsPage = () => {
+  const { chatId } = useParams();
+
+  // На телефоне показываем либо список диалогов, либо открытый диалог
   return (
-    <div
-      style={{
-        display: 'flex',
-        height: 'calc(100vh - 40px)',
-        border: '1px solid #e2e8f0',
-        borderRadius: 12,
-        overflow: 'hidden',
-        background: '#fff',
-      }}
-    >
+    <div className={`chat-page${chatId ? ' chat-page--open' : ''}`}>
       <ChatList />
       <ChatWindow />
     </div>
