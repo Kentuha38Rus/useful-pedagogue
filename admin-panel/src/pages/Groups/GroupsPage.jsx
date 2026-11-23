@@ -367,9 +367,13 @@ const GroupsPage = () => {
               ))}
             </select>
 
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+              Количество детей в группе
+            </label>
             <Input
               type="number"
-              placeholder="Максимум студентов"
+              min={1}
+              placeholder="Максимум детей в группе"
               value={formData.maxStudents}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -378,6 +382,10 @@ const GroupsPage = () => {
                 }))
               }
             />
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: -4, marginBottom: 12 }}>
+              Подсказка: это максимальное число детей в группе. Когда группа заполнится,
+              добавить нового ребёнка не получится — увеличьте лимит или создайте ещё одну группу.
+            </div>
 
             {/* Редактор недельного шаблона */}
             <div style={{ margin: '16px 0', padding: 12, background: '#f8fafc', borderRadius: 8 }}>

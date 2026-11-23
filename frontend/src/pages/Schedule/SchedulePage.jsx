@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchMySchedule } from '../../store/slices/scheduleSlice';
 import { fetchChildren } from '../../store/slices/authSlice';
 import Card from '../../components/common/Card';
+import CalendarView from '../../components/schedule/CalendarView';
 import styles from './SchedulePage.module.scss';
 
 const SchedulePage = () => {
@@ -38,6 +39,10 @@ const SchedulePage = () => {
   return (
     <div className={styles.schedulePage}>
       <h1>Расписание занятий</h1>
+
+      {(user?.role === 'parent' || user?.role === 'teacher') && (
+        <CalendarView lessons={lessons} />
+      )}
 
       {loading && <p className={styles.info}>Загрузка...</p>}
       {error && <p className={styles.error}>{error}</p>}

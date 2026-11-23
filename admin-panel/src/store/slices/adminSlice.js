@@ -32,6 +32,56 @@ export const fetchUsers = createAsyncThunk('admin/fetchUsers', async (params = {
   return response.data;
 });
 
+// Полная карточка пользователя (для раскрытия родителя/учителя в дашборде)
+export const fetchUserDetails = createAsyncThunk(
+  'admin/fetchUserDetails',
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/admin/users/${userId}`);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Не удалось загрузить данные пользователя'
+      );
+    }
+  }
+);
+
+// Ребёнка создаёт администратор для выбранного родителя
+export const createChild = createAsyncThunk(
+  'admin/createChild',
+  async (childData, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/children', childData);
+      return response.data;
+    } catch (err) {
+      const errors = err.response?.data?.errors;
+      return rejectWithValue(
+        Array.isArray(errors) && errors.length
+          ? errors.join('; ')
+          : err.response?.data?.message || 'Не удалось добавить ребёнка'
+      );
+    }
+  }
+);
+
+export const updateChild = createAsyncThunk(
+  'admin/updateChild',
+  async ({ id, ...childData }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/children/${id}`, childData);
+      return response.data;
+    } catch (err) {
+      const errors = err.response?.data?.errors;
+      return rejectWithValue(
+        Array.isArray(errors) && errors.length
+          ? errors.join('; ')
+          : err.response?.data?.message || 'Не удалось сохранить ребёнка'
+      );
+    }
+  }
+);
+
 export const fetchTeachers = createAsyncThunk('admin/fetchTeachers', async () => {
   const response = await api.get('/admin/users', { params: { role: 'teacher', limit: 100 } });
   return response.data.users;
@@ -130,6 +180,7 @@ const initialState = {
   stats: null,
   salary: { period: {}, share: 0.4, teachers: [], totals: { revenue: 0, salary: 0 } },
   users: { total: 0, page: 1, totalPages: 1, users: [] },
+  userDetails: { user: null, loading: false, error: null },
   teachers: [],
   groups: [],
   courses: [],
@@ -191,6 +242,18 @@ const adminSlice = createSlice({
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.users = action.payload;
+      })
+      .addCase(fetchUserDetails.pending, (state) => {
+        state.userDetails.loading = true;
+        state.userDetails.error = null;
+      })
+      .addCase(fetchUserDetails.fulfilled, (state, action) => {
+        state.userDetails.loading = false;
+        state.userDetails.user = action.payload;
+      })
+      .addCase(fetchUserDetails.rejected, (state, action) => {
+        state.userDetails.loading = false;
+        state.userDetails.error = action.payload || 'Ошибка загрузки';
       })
       .addCase(fetchTeachers.fulfilled, (state, action) => {
         state.teachers = action.payload;

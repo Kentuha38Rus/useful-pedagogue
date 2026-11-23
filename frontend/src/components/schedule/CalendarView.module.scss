@@ -4,21 +4,47 @@
   background: #fff;
   border-radius: $radius-lg;
   padding: $spacing-md;
-  margin: $spacing-md;
+  margin-bottom: $spacing-md;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: 600;
   margin-bottom: $spacing-md;
-  button {
-    font-size: 24px;
-    padding: 0 12px;
-    background: none;
-    border: none;
-    color: $primary;
+  gap: $spacing-sm;
+}
+
+.monthTitle {
+  font-weight: 600;
+  font-size: $font-size-base;
+  text-transform: capitalize;
+  text-align: center;
+  flex: 1;
+  @media (max-width: $breakpoint-mobile) {
+    font-size: $font-size-base-mobile;
+  }
+}
+
+.navBtn {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+  border: 1px solid $border;
+  border-radius: 50%;
+  background: $background;
+  color: $text-primary;
+  cursor: pointer;
+
+  &:hover {
+    background: $secondary;
+    color: #fff;
   }
 }
 
@@ -26,30 +52,120 @@
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
-  .weekday {
-    text-align: center;
-    font-weight: 600;
-    color: $text-light;
-    font-size: $font-size-small;
+}
+
+.weekday {
+  text-align: center;
+  font-weight: 600;
+  color: $text-light;
+  font-size: $font-size-small;
+  padding: 4px 0;
+}
+
+.emptyCell {
+  min-height: 38px;
+}
+
+.day {
+  position: relative;
+  min-height: 38px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: #faf8f2;
+  font: inherit;
+  font-size: $font-size-small;
+  color: $text-primary;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.65;
   }
-  .day {
-    text-align: center;
-    padding: 8px 0;
-    border-radius: 50%;
-    position: relative;
-    &:hover {
-      background: $secondary;
-      color: #fff;
-    }
-    .dot {
-      position: absolute;
-      bottom: 2px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: $primary;
-    }
-  }
+}
+
+.marked {
+  background: #e7ecd9;
+  border-color: $secondary;
+  font-weight: 700;
+  color: $primary;
+  opacity: 1 !important;
+}
+
+.today {
+  border-color: $primary;
+}
+
+.selected {
+  background: $primary;
+  border-color: $primary;
+  color: #fff;
+}
+
+.dot {
+  position: absolute;
+  bottom: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.summary {
+  margin-top: $spacing-sm;
+  font-size: $font-size-small;
+  color: $text-light;
+}
+
+.dayDetails {
+  margin-top: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  background: $background;
+  border-radius: $radius;
+}
+
+.dayTitle {
+  font-weight: 600;
+  font-size: $font-size-small;
+  text-transform: capitalize;
+  margin-bottom: $spacing-xs;
+}
+
+.info {
+  font-size: $font-size-small;
+  color: $text-light;
+  margin: 0;
+}
+
+.lessonList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lessonItem {
+  display: flex;
+  gap: $spacing-sm;
+  font-size: $font-size-small;
+  padding: 3px 0;
+}
+
+.lessonTime {
+  font-weight: 600;
+  color: $primary;
+  white-space: nowrap;
+}
+
+.clearBtn {
+  margin-top: $spacing-xs;
+  border: none;
+  background: transparent;
+  color: $primary;
+  font-size: $font-size-small;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
 }

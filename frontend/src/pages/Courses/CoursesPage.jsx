@@ -38,7 +38,6 @@ const CoursesPage = () => {
             <h3>{course.name}</h3>
             <p>{course.description}</p>
             <p>Цена: {course.price} ₽</p>
-            <p>Возраст: {course.ageMin}–{course.ageMax} лет</p>
             
             {/* Индикатор записи */}
             {isChildEnrolled(course.id) ? (

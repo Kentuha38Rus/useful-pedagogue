@@ -2,6 +2,21 @@ const { Child, Group, Lesson, User } = require('../models');
 const { Op } = require('sequelize');
 const { requireTenant } = require('../utils/helpers');
 
+// Пустые строки из формы храним как NULL, чтобы в карточке не было «пустых» значений
+const normalizeText = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const trimmed = String(value).trim();
+  return trimmed === '' ? null : trimmed;
+};
+
+const normalizeAngles = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item).trim())
+    .filter((item) => item.length > 0);
+};
+
 // GET /children
 // parent  → только свои дети (в своём тенанте)
 // teacher → дети из групп, где он teacher (в своём тенанте)
@@ -163,27 +178,45 @@ exports.getChildById = async (req, res, next) => {
 };
 
 // POST /children
+// Создавать ребёнка может только администратор — сразу для выбранного родителя.
 exports.createChild = async (req, res, next) => {
   try {
     const tid = requireTenant(req);
-    const user = req.user;
-    const { name, birthDate } = req.body;
+    const role = req.effectiveRole || req.user.role;
 
-    let parentId = user.id;
-    if (user.role === 'admin' && req.body.parentId) {
-      // Проверяем, что родитель в этом же тенанте
-      const parent = await User.findOne({
-        where: { id: req.body.parentId, tenantId: tid },
-      });
-      if (!parent) {
-        return res.status(404).json({ message: 'Parent not found' });
-      }
-      parentId = req.body.parentId;
-    } else if (user.role !== 'parent') {
-      return res.status(400).json({ message: 'Parent ID required for admin' });
+    if (role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can add children' });
     }
 
-    const child = await Child.create({ tenantId: tid, name, birthDate, parentId });
+    const { parentId } = req.body;
+    if (!parentId) {
+      return res.status(400).json({ message: 'parentId is required' });
+    }
+
+    // Проверяем, что родитель в этом же тенанте
+    const parent = await User.findOne({
+      where: { id: parentId, tenantId: tid, role: 'parent' },
+    });
+    if (!parent) {
+      return res.status(404).json({ message: 'Parent not found' });
+    }
+
+    const photoConsent = Boolean(req.body.photoConsent);
+
+    const child = await Child.create({
+      tenantId: tid,
+      parentId,
+      surname: normalizeText(req.body.surname),
+      name: normalizeText(req.body.name),
+      birthDate: req.body.birthDate,
+      diagnosis: normalizeText(req.body.diagnosis),
+      allergies: normalizeText(req.body.allergies),
+      contraindications: normalizeText(req.body.contraindications),
+      photoConsent,
+      photoAngles: photoConsent ? normalizeAngles(req.body.photoAngles) : [],
+      extraInfo: normalizeText(req.body.extraInfo),
+    });
+
     res.status(201).json(child);
   } catch (error) {
     next(error);
@@ -191,21 +224,64 @@ exports.createChild = async (req, res, next) => {
 };
 
 // PATCH /children/:id
+// Администратор редактирует всю карточку, родитель — только имя, фамилию
+// и дату рождения своего ребёнка.
 exports.updateChild = async (req, res, next) => {
   try {
     const tid = requireTenant(req);
     const { id } = req.params;
     const user = req.user;
+    const role = req.effectiveRole || user.role;
 
     const child = await Child.findOne({ where: { id, tenantId: tid } });
     if (!child) return res.status(404).json({ message: 'Child not found' });
 
-    if (user.role === 'parent' && child.parentId !== user.id) {
+    if (role !== 'admin' && (role !== 'parent' || child.parentId !== user.id)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const { name, birthDate } = req.body;
-    await child.update({ name, birthDate });
+    const updates = {};
+
+    if (role === 'admin') {
+      const textFields = [
+        'surname',
+        'name',
+        'diagnosis',
+        'allergies',
+        'contraindications',
+        'extraInfo',
+      ];
+      for (const field of textFields) {
+        if (req.body[field] !== undefined) {
+          updates[field] = normalizeText(req.body[field]);
+        }
+      }
+      if (req.body.birthDate !== undefined) {
+        updates.birthDate = req.body.birthDate;
+      }
+      if (req.body.photoConsent !== undefined) {
+        updates.photoConsent = Boolean(req.body.photoConsent);
+      }
+      if (req.body.photoAngles !== undefined) {
+        updates.photoAngles = normalizeAngles(req.body.photoAngles);
+      }
+      if (updates.photoConsent === false) {
+        updates.photoAngles = [];
+      }
+    } else {
+      // Родитель может исправить только имя, фамилию и дату рождения
+      if (req.body.surname !== undefined) {
+        updates.surname = normalizeText(req.body.surname);
+      }
+      if (req.body.name !== undefined) {
+        updates.name = normalizeText(req.body.name);
+      }
+      if (req.body.birthDate !== undefined) {
+        updates.birthDate = req.body.birthDate;
+      }
+    }
+
+    await child.update(updates);
     res.json(child);
   } catch (error) {
     next(error);
@@ -218,11 +294,15 @@ exports.deleteChild = async (req, res, next) => {
     const tid = requireTenant(req);
     const { id } = req.params;
     const user = req.user;
+    const role = req.effectiveRole || user.role;
 
     const child = await Child.findOne({ where: { id, tenantId: tid } });
     if (!child) return res.status(404).json({ message: 'Child not found' });
 
-    if (user.role === 'parent' && child.parentId !== user.id) {
+    if (role === 'parent' && child.parentId !== user.id) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (role !== 'admin' && role !== 'parent') {
       return res.status(403).json({ message: 'Forbidden' });
     }
 

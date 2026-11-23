@@ -121,7 +121,7 @@ class AdminController {
         }),
         Child.findAll({
           where: { tenantId: tid },
-          attributes: ['id', 'name', 'birthDate'],
+          attributes: ['id', 'name', 'surname', 'birthDate'],
           order: [['name', 'ASC']],
         }),
         Group.findAll({
@@ -162,7 +162,7 @@ class AdminController {
         }),
         Child.findAll({
           where: unassignedWhere,
-          attributes: ['id', 'name', 'birthDate'],
+          attributes: ['id', 'name', 'surname', 'birthDate'],
           order: [['name', 'ASC']],
         }),
       ]);
@@ -674,7 +674,41 @@ class AdminController {
         ],
       });
       if (!user) return res.status(404).json({ message: 'User not found' });
-      res.status(200).json(user);
+
+      const plain = user.toJSON();
+
+      // Расписание учителя на месяц — отдельным запросом, без тяжёлых join'ов
+      if (user.role === 'teacher' && plain.groups && plain.groups.length > 0) {
+        const groupIds = plain.groups.map((group) => group.id);
+        const lessons = await Lesson.findAll({
+          where: {
+            tenantId: tid,
+            groupId: { [Op.in]: groupIds },
+            is_cancelled: false,
+          },
+          attributes: ['id', 'groupId', 'date', 'startTime', 'endTime', 'topic'],
+          order: [['date', 'ASC'], ['startTime', 'ASC']],
+        });
+
+        const lessonsByGroup = {};
+        lessons.forEach((lesson) => {
+          if (!lessonsByGroup[lesson.groupId]) lessonsByGroup[lesson.groupId] = [];
+          lessonsByGroup[lesson.groupId].push({
+            id: lesson.id,
+            date: lesson.date,
+            startTime: lesson.startTime,
+            endTime: lesson.endTime,
+            topic: lesson.topic,
+          });
+        });
+
+        plain.groups = plain.groups.map((group) => ({
+          ...group,
+          lessons: lessonsByGroup[group.id] || [],
+        }));
+      }
+
+      res.status(200).json(plain);
     } catch (error) {
       next(error);
     }

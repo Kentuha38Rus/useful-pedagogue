@@ -26,11 +26,6 @@ const ProfilePage = () => {
     navigate('/login');
   };
 
-  const openAddChild = () => {
-    setEditingChild(null);
-    setShowChildModal(true);
-  };
-
   const openEditChild = (child) => {
     setEditingChild(child);
     setShowChildModal(true);
@@ -57,9 +52,9 @@ const ProfilePage = () => {
       <Card className={styles.childrenCard}>
         <div className={styles.header}>
           <h3>Мои дети</h3>
-          <Button variant="primary" size="small" onClick={openAddChild}>
-            + Добавить
-          </Button>
+          <span style={{ fontSize: 13, color: '#666' }}>
+            Добавить ребёнка может администратор школы
+          </span>
         </div>
         {children.length === 0 ? (
           <p>Нет добавленных детей</p>
@@ -68,7 +63,8 @@ const ProfilePage = () => {
             <div key={child.id} className={styles.childItem}>
               <div className={styles.childInfo}>
                 <span className={styles.childName}>
-                  {child.name} {child.birthDate && `(${child.birthDate})`}
+                  {[child.surname, child.name].filter(Boolean).join(' ')}{' '}
+                  {child.birthDate && `(${child.birthDate})`}
                 </span>
 
                 {/* Перебираем ВСЕ группы ребёнка */}

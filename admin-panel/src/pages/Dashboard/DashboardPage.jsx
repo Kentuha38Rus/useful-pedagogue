@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchStats } from '../../store/slices/adminSlice';
+import { fetchStats, fetchUserDetails } from '../../store/slices/adminSlice';
+import ChildFormModal from '../../components/children/ChildFormModal';
+import ParentDetails from './ParentDetails';
+import TeacherDetails from './TeacherDetails';
 import api from '../../utils/api';
 
 const getLocalDateString = () => {
@@ -79,9 +82,14 @@ const StatusBadge = ({ status }) => {
 
 const DashboardPage = () => {
   const dispatch = useDispatch();
-  const { stats, loading, error } = useSelector((state) => state.admin);
+  const { stats, loading, error, userDetails } = useSelector((state) => state.admin);
 
   const [expanded, setExpanded] = useState(null);
+
+  // Раскрытая карточка родителя / учителя в дашборде
+  const [selectedParentId, setSelectedParentId] = useState(null);
+  const [selectedTeacherId, setSelectedTeacherId] = useState(null);
+  const [childModal, setChildModal] = useState({ isOpen: false, child: null });
 
   // Состояние отправки для каждого занятия: lessonId -> { loading, message, error, cooldown }
   const [notifyByLesson, setNotifyByLesson] = useState({});
@@ -98,6 +106,42 @@ const DashboardPage = () => {
       Object.values(timers).forEach((t) => clearInterval(t));
     };
   }, []);
+
+  const toggleCard = (key) => {
+    const next = expanded === key ? null : key;
+    setExpanded(next);
+    if (next !== 'parents') setSelectedParentId(null);
+    if (next !== 'teachers') setSelectedTeacherId(null);
+  };
+
+  const openPerson = (role, id) => {
+    if (role === 'parent') {
+      setSelectedParentId(id);
+      setSelectedTeacherId(null);
+    } else {
+      setSelectedTeacherId(id);
+      setSelectedParentId(null);
+    }
+    dispatch(fetchUserDetails(id));
+  };
+
+  const closePerson = (role) => {
+    if (role === 'parent') setSelectedParentId(null);
+    else setSelectedTeacherId(null);
+  };
+
+  const handleEditChild = (child) => {
+    setChildModal({ isOpen: true, child });
+  };
+
+  const handleAddChild = () => {
+    setChildModal({ isOpen: true, child: null });
+  };
+
+  const handleChildSaved = () => {
+    if (selectedParentId) dispatch(fetchUserDetails(selectedParentId));
+    dispatch(fetchStats({ date: getLocalDateString() }));
+  };
 
   const setLessonState = (lessonId, patch) => {
     setNotifyByLesson((prev) => ({
@@ -197,6 +241,7 @@ const DashboardPage = () => {
       icon: '👨‍🏫',
       gradient: 'linear-gradient(135deg, #2196f3 0%, #00bcd4 100%)',
       items: (details.teachers || []).map((t) => ({
+        id: t.id,
         title: t.name || t.username || 'Без имени',
         subtitle:
           [t.email, t.username ? `@${t.username}` : null]
@@ -212,6 +257,7 @@ const DashboardPage = () => {
       icon: '👪',
       gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
       items: (details.parents || []).map((p) => ({
+        id: p.id,
         title: p.name || p.username || 'Без имени',
         subtitle:
           [p.email, p.username ? `@${p.username}` : null]
@@ -227,7 +273,7 @@ const DashboardPage = () => {
       icon: '🧒',
       gradient: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
       items: (details.children || []).map((c) => ({
-        title: c.name || 'Без имени',
+        title: [c.surname, c.name].filter(Boolean).join(' ') || 'Без имени',
         subtitle: c.birthDate
           ? `Дата рождения: ${formatDate(c.birthDate)}`
           : 'Дата рождения не указана',
@@ -284,7 +330,7 @@ const DashboardPage = () => {
       icon: '⚠️',
       gradient: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
       items: (details.unassignedChildren || []).map((c) => ({
-        title: c.name || 'Без имени',
+        title: [c.surname, c.name].filter(Boolean).join(' ') || 'Без имени',
         subtitle: c.birthDate
           ? `Дата рождения: ${formatDate(c.birthDate)}`
           : 'Дата рождения не указана',
@@ -321,6 +367,8 @@ const DashboardPage = () => {
         }
         .dash-notify-btn:hover:not(:disabled) { background: #ffffff; transform: translateY(-1px); }
         .dash-notify-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .dash-person-row:hover { background: rgba(255,255,255,0.14); }
+        .dash-person-row:focus-visible { outline: 2px solid rgba(255,255,255,0.85); outline-offset: 1px; }
       `}</style>
 
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -332,6 +380,25 @@ const DashboardPage = () => {
         {cards.map((card) => {
           const isOpen = expanded === card.key;
           const isTodayLessons = card.key === 'todayLessons';
+          const personRole =
+            card.key === 'parents'
+              ? 'parent'
+              : card.key === 'teachers'
+              ? 'teacher'
+              : null;
+          const selectedId =
+            personRole === 'parent'
+              ? selectedParentId
+              : personRole === 'teacher'
+              ? selectedTeacherId
+              : null;
+          const personUser =
+            personRole && selectedId && userDetails.user?.id === selectedId
+              ? userDetails.user
+              : null;
+          const personLoading = Boolean(
+            personRole && selectedId && userDetails.loading
+          );
           return (
             <div
               key={card.key}
@@ -339,11 +406,11 @@ const DashboardPage = () => {
               role="button"
               tabIndex={0}
               aria-expanded={isOpen}
-              onClick={() => setExpanded(isOpen ? null : card.key)}
+              onClick={() => toggleCard(card.key)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setExpanded(isOpen ? null : card.key);
+                  toggleCard(card.key);
                 }
               }}
               style={{
@@ -394,31 +461,84 @@ const DashboardPage = () => {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {/* Раскрытая карточка конкретного родителя / учителя */}
+                  {personRole && selectedId && (
+                    personRole === 'parent' ? (
+                      <ParentDetails
+                        user={personUser}
+                        loading={personLoading}
+                        error={personUser ? null : userDetails.error}
+                        onBack={() => closePerson('parent')}
+                        onEditChild={handleEditChild}
+                        onAddChild={handleAddChild}
+                      />
+                    ) : (
+                      <TeacherDetails
+                        user={personUser}
+                        loading={personLoading}
+                        error={personUser ? null : userDetails.error}
+                        onBack={() => closePerson('teacher')}
+                      />
+                    )
+                  )}
+
                   {/* Обычные карточки: items — массив {title, subtitle} */}
-                  {!isTodayLessons && (
+                  {!isTodayLessons && !(personRole && selectedId) && (
                     <>
                       {(!card.items || card.items.length === 0) ? (
                         <div style={{ fontSize: 13, opacity: 0.92 }}>
                           {card.emptyText || 'Нет данных'}
                         </div>
                       ) : (
-                        card.items.map((item, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '6px 0',
-                              borderBottom:
-                                idx < card.items.length - 1
-                                  ? '1px solid rgba(255,255,255,0.25)'
-                                  : 'none',
-                            }}
-                          >
-                            <div style={{ fontSize: 14, fontWeight: 600 }}>{item.title}</div>
-                            {item.subtitle && (
-                              <div style={{ fontSize: 12, opacity: 0.9 }}>{item.subtitle}</div>
-                            )}
-                          </div>
-                        ))
+                        <>
+                          {personRole && (
+                            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6 }}>
+                              Нажмите на имя, чтобы открыть карточку
+                            </div>
+                          )}
+                          {card.items.map((item, idx) => {
+                            const clickable = Boolean(personRole);
+                            const openItem = () => openPerson(personRole, item.id);
+                            return (
+                              <div
+                                key={item.id || idx}
+                                className={clickable ? 'dash-person-row' : undefined}
+                                role={clickable ? 'button' : undefined}
+                                tabIndex={clickable ? 0 : undefined}
+                                onClick={clickable ? openItem : undefined}
+                                onKeyDown={
+                                  clickable
+                                    ? (e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          openItem();
+                                        }
+                                      }
+                                    : undefined
+                                }
+                                style={{
+                                  padding: '6px 4px',
+                                  borderRadius: 6,
+                                  cursor: clickable ? 'pointer' : 'default',
+                                  borderBottom:
+                                    idx < card.items.length - 1
+                                      ? '1px solid rgba(255,255,255,0.25)'
+                                      : 'none',
+                                }}
+                              >
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>
+                                  {item.title}
+                                  {clickable && (
+                                    <span style={{ opacity: 0.75, marginLeft: 6 }}>›</span>
+                                  )}
+                                </div>
+                                {item.subtitle && (
+                                  <div style={{ fontSize: 12, opacity: 0.9 }}>{item.subtitle}</div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </>
                       )}
                     </>
                   )}
@@ -518,6 +638,14 @@ const DashboardPage = () => {
           );
         })}
       </div>
+
+      <ChildFormModal
+        isOpen={childModal.isOpen}
+        parentId={selectedParentId}
+        child={childModal.child}
+        onClose={() => setChildModal({ isOpen: false, child: null })}
+        onSaved={handleChildSaved}
+      />
     </div>
   );
 };

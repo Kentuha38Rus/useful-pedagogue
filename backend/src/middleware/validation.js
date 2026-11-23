@@ -40,14 +40,31 @@ const schemas = {
     username: Joi.string().alphanum().min(3).max(50).optional(),
   }),
 
+  // Ребёнка создаёт только администратор и сразу привязывает к родителю.
+  // Возраст задаётся датой рождения (интерактивный календарь), поэтому она обязательна.
   createChild: Joi.object({
+    parentId: Joi.string().uuid().required(),
+    surname: Joi.string().max(120).allow('', null).optional(),
     name: Joi.string().min(1).max(120).required(),
-    birthDate: Joi.date().iso().optional(),
+    birthDate: Joi.date().iso().required(),
+    diagnosis: Joi.string().max(5000).allow('', null).optional(),
+    allergies: Joi.string().max(5000).allow('', null).optional(),
+    contraindications: Joi.string().max(5000).allow('', null).optional(),
+    photoConsent: Joi.boolean().optional(),
+    photoAngles: Joi.array().items(Joi.string().max(100)).optional(),
+    extraInfo: Joi.string().min(1).max(5000).required(),
   }),
 
   updateChild: Joi.object({
+    surname: Joi.string().max(120).allow('', null).optional(),
     name: Joi.string().min(1).max(120).optional(),
     birthDate: Joi.date().iso().optional(),
+    diagnosis: Joi.string().max(5000).allow('', null).optional(),
+    allergies: Joi.string().max(5000).allow('', null).optional(),
+    contraindications: Joi.string().max(5000).allow('', null).optional(),
+    photoConsent: Joi.boolean().optional(),
+    photoAngles: Joi.array().items(Joi.string().max(100)).optional(),
+    extraInfo: Joi.string().min(1).max(5000).optional(),
   }),
 
   createCourse: Joi.object({

@@ -12,8 +12,6 @@ const CoursesPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    ageMin: '',   // ← пустая строка
-    ageMax: '',   // ← пустая строка
     price: '',    // ← пустая строка
   });
 
@@ -26,13 +24,11 @@ const CoursesPage = () => {
     const payload = {
       name: formData.name.trim(),
       description: formData.description.trim(),
-      ageMin: formData.ageMin === '' ? 3 : parseInt(formData.ageMin, 10),
-      ageMax: formData.ageMax === '' ? 7 : parseInt(formData.ageMax, 10),
       price: formData.price === '' ? 0 : parseFloat(formData.price),
     };
     await dispatch(createCourse(payload));
     setShowForm(false);
-    setFormData({ name: '', description: '', ageMin: '', ageMax: '', price: '' });
+    setFormData({ name: '', description: '', price: '' });
   };
 
   const handleDelete = (id) => {
@@ -62,20 +58,6 @@ const CoursesPage = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
-            <div className="form-row">
-              <Input
-                type="number"
-                placeholder="Минимальный возраст (лет)"
-                value={formData.ageMin}
-                onChange={(e) => setFormData({ ...formData, ageMin: e.target.value })}
-              />
-              <Input
-                type="number"
-                placeholder="Максимальный возраст (лет)"
-                value={formData.ageMax}
-                onChange={(e) => setFormData({ ...formData, ageMax: e.target.value })}
-              />
-            </div>
             <Input
               type="number"
               placeholder="Цена в рублях, например 1500"
@@ -95,7 +77,6 @@ const CoursesPage = () => {
             <Card key={course.id} style={{ padding: '15px' }}>
               <h3>{course.name}</h3>
               <p>{course.description}</p>
-              <p>Возраст: {course.ageMin}–{course.ageMax} лет</p>
               <p>Цена: {course.price} ₽</p>
               <p>Групп: {course.groups?.length || 0}</p>
               <Button variant="danger" onClick={() => handleDelete(course.id)}>Удалить</Button>
