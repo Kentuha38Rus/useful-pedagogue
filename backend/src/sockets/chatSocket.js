@@ -87,8 +87,9 @@ module.exports = (io) => {
           ],
         });
 
-        io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
-        io.to(`user:${receiver_id}`).emit('new_message', messageWithSender);
+        io.to(`chat_${chatId}`)
+          .to(`user:${receiver_id}`)
+          .emit('new_message', messageWithSender);
         socket.emit('message_sent', messageWithSender);
       } catch (e) {
         socket.emit('error', 'Failed to send message');

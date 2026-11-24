@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { loadUser } from './store/slices/authSlice';
 import { initSocket, fetchDialogs } from './store/slices/chatSlice';
+import { ensureSocketConnected } from './utils/socket';
 import './utils/installPrompt';
 
 import BottomNav from './components/navigation/BottomNav';
@@ -42,6 +43,29 @@ function App() {
       dispatch(initSocket());
       dispatch(fetchDialogs());
     }
+  }, [dispatch, user?.id, user?.role]);
+
+  // iPhone/Android: после выхода из фона сокет мог отвалиться.
+  // Переподключаем его со свежим токеном и обновляем список диалогов.
+  useEffect(() => {
+    if (!user?.id || user?.role === 'platform_admin') return undefined;
+
+    const handleResume = () => {
+      if (document.visibilityState === 'visible') {
+        ensureSocketConnected();
+        dispatch(fetchDialogs());
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleResume);
+    window.addEventListener('focus', handleResume);
+    window.addEventListener('online', handleResume);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleResume);
+      window.removeEventListener('focus', handleResume);
+      window.removeEventListener('online', handleResume);
+    };
   }, [dispatch, user?.id, user?.role]);
 
   // ИСПРАВЛЕНО: Глобальный экран загрузки, чтобы избежать мигания страницы логина

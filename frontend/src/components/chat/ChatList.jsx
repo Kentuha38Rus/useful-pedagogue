@@ -21,6 +21,10 @@ const ChatList = () => {
 
   useEffect(() => {
     dispatch(fetchDialogs());
+
+    // Страховка для iOS: если сокет «заснул», обновляем список диалогов
+    const interval = setInterval(() => dispatch(fetchDialogs()), 15000);
+    return () => clearInterval(interval);
   }, [dispatch]);
 
   const openChat = (chatId) => {

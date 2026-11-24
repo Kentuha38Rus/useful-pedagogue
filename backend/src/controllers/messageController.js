@@ -64,7 +64,12 @@ exports.sendMessage = async (req, res, next) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
+      // Одно событие в объединение комнат: собеседнику в личную комнату,
+      // отправителю — тоже, чтобы сообщение сразу появилось в интерфейсе.
+      io.to(`chat_${chatId}`)
+        .to(`user:${receiver_id}`)
+        .to(`user:${senderId}`)
+        .emit('new_message', messageWithSender);
     }
 
     res.status(201).json(messageWithSender);

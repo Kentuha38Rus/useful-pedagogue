@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import {
@@ -9,6 +9,7 @@ import {
   markMessageAsRead,
   getOtherUserId,
 } from '../../store/slices/chatSlice';
+import { ensureSocketConnected, getSocket } from '../../utils/socket';
 import MessageInput from './MessageInput';
 
 const formatTime = (value) => {
@@ -41,6 +42,7 @@ const ChatWindow = () => {
   const { messages, loading } = useSelector((state) => state.chat);
   const myUserId = useSelector((state) => state.auth.user?.id);
   const messagesEndRef = useRef(null);
+  const [sendError, setSendError] = useState('');
 
   const otherUserId = chatId ? getOtherUserId(chatId, myUserId) : null;
   const replyIntent = searchParams.get('reply') === '1';
@@ -54,9 +56,54 @@ const ChatWindow = () => {
     };
   }, [dispatch, chatId]);
 
+  // Подписываемся на комнату чата, чтобы получать новые сообщения
+  useEffect(() => {
+    if (!chatId || !myUserId) return undefined;
+
+    const socket = getSocket(myUserId);
+    if (!socket) return undefined;
+
+    const join = () => socket.emit('join_chat', chatId);
+    join();
+    socket.on('connect', join);
+
+    return () => {
+      socket.off('connect', join);
+    };
+  }, [chatId, myUserId]);
+
+  // Если сокет отвалился (например, iPhone после фона) — добираем сообщения
+  // обычными запросами, чтобы чат не «замирал».
+  useEffect(() => {
+    if (!chatId) return undefined;
+
+    const refresh = () => dispatch(fetchMessages(chatId));
+
+    // Страховка на случай «полуживого» сокета (частая ситуация на iOS):
+    // раз в 10 секунд подтягиваем сообщения обычным запросом.
+    const interval = setInterval(refresh, 10000);
+
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') {
+        ensureSocketConnected();
+        refresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisible);
+    window.addEventListener('focus', handleVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisible);
+      window.removeEventListener('focus', handleVisible);
+    };
+  }, [chatId, myUserId, dispatch]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // Скроллим только при появлении новых сообщений, а не при каждом опросе
+  }, [messages.length]);
 
   useEffect(() => {
     if (!myUserId) return;
@@ -84,12 +131,25 @@ const ChatWindow = () => {
     return () => clearTimeout(t);
   }, [replyIntent, searchParams, setSearchParams]);
 
-  const handleSend = (text) => {
+  const handleSend = async (text) => {
     if (!otherUserId) {
       console.error('[chat] receiver not found for chat', chatId);
-      return;
+      setSendError('Не найден получатель сообщения');
+      return false;
     }
-    dispatch(sendMessage({ receiverId: otherUserId, content: text }));
+
+    setSendError('');
+    try {
+      await dispatch(
+        sendMessage({ receiverId: otherUserId, content: text })
+      ).unwrap();
+      return true;
+    } catch (err) {
+      setSendError(
+        typeof err === 'string' ? err : 'Не удалось отправить сообщение'
+      );
+      return false;
+    }
   };
 
   if (!chatId) {
@@ -235,6 +295,19 @@ const ChatWindow = () => {
         })}
         <div ref={messagesEndRef} />
       </div>
+
+      {sendError && (
+        <div
+          style={{
+            padding: '8px 16px',
+            background: '#fee2e2',
+            color: '#991b1b',
+            fontSize: 13,
+          }}
+        >
+          ⚠️ {sendError}
+        </div>
+      )}
 
       <MessageInput onSend={handleSend} autoFocus={replyIntent} />
     </div>

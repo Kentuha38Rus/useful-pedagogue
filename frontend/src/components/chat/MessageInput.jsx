@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const MessageInput = ({ onSend, autoFocus = false }) => {
   const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
   const inputRef = useRef(null);
 
   // Автофокус, если пришли из push с ?reply=1
@@ -12,11 +13,18 @@ const MessageInput = ({ onSend, autoFocus = false }) => {
     }
   }, [autoFocus]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    onSend(trimmed);
-    setText('');
+    if (!trimmed || sending) return;
+
+    setSending(true);
+    try {
+      const sent = await onSend(trimmed);
+      // Очищаем поле только если сообщение реально отправлено
+      if (sent !== false) setText('');
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -55,19 +63,19 @@ const MessageInput = ({ onSend, autoFocus = false }) => {
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={!text.trim()}
+        disabled={!text.trim() || sending}
         style={{
           padding: '10px 20px',
           border: 'none',
           borderRadius: 8,
-          background: text.trim() ? '#4A90E2' : '#cbd5e1',
+          background: text.trim() && !sending ? '#4A90E2' : '#cbd5e1',
           color: '#fff',
           fontSize: 14,
           fontWeight: 600,
-          cursor: text.trim() ? 'pointer' : 'not-allowed',
+          cursor: text.trim() && !sending ? 'pointer' : 'not-allowed',
         }}
       >
-        Отправить
+        {sending ? 'Отправка...' : 'Отправить'}
       </button>
     </div>
   );

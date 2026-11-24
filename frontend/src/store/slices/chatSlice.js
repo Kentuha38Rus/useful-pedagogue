@@ -63,23 +63,19 @@ export const fetchMessages = createAsyncThunk(
 
 export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
-  async ({ receiverId, content }, { getState }) => {
-    const userId = getState().auth.user?.id;
-    const socket = getSocket(userId);
-    if (!socket) throw new Error('Socket not connected');
-
-    socket.emit('send_message', {
-      receiver_id: receiverId,
-      content,
-    });
-
-    return {
-      chat_id: [String(userId), String(receiverId)].sort().join('_'),
-      sender_id: userId,
-      content,
-      created_at: new Date().toISOString(),
-      isOwn: true,
-    };
+  async ({ receiverId, content }, { rejectWithValue }) => {
+    try {
+      // Отправляем через REST: работает даже если сокет отвалился
+      const res = await api.post('/messages', {
+        receiver_id: receiverId,
+        content,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.error || 'Не удалось отправить сообщение'
+      );
+    }
   }
 );
 
@@ -136,9 +132,10 @@ const chatSlice = createSlice({
       if (!dialog) {
         dialog = {
           chat_id: chatId,
-          other_user: message.sender || null,
+          other_user: isOwn ? null : message.sender || null,
           last_message: message,
-          unread_count: 0,
+          unread_count:
+            !isOwn && state.activeChatId !== chatId ? 1 : 0,
         };
         state.dialogs.unshift(dialog);
       } else {
@@ -149,13 +146,18 @@ const chatSlice = createSlice({
       }
 
       if (state.activeChatId === chatId) {
-        state.messages.push(message);
+        // Одно и то же сообщение может прийти и по REST, и по сокету
+        const exists = state.messages.some((m) => m.id === message.id);
+        if (!exists) state.messages.push(message);
       }
 
       recalcUnread(state);
     },
 
     setActiveChat: (state, action) => {
+      if (state.activeChatId !== action.payload) {
+        state.messages = [];
+      }
       state.activeChatId = action.payload;
       const dialog = state.dialogs.find((d) => d.chat_id === action.payload);
       if (dialog) dialog.unread_count = 0;
@@ -202,12 +204,40 @@ const chatSlice = createSlice({
         recalcUnread(state);
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
-        state.messages = action.payload.messages || [];
-        state.activeChatId = action.payload.chatId;
+        const incoming = action.payload.messages || [];
+        const chatId = action.payload.chatId;
+
+        if (state.activeChatId === chatId) {
+          // Объединяем с уже показанными сообщениями: опрос не должен
+          // «съедать» только что отправленное сообщение.
+          const map = new Map();
+          [...state.messages, ...incoming].forEach((message) => {
+            map.set(message.id, message);
+          });
+          state.messages = Array.from(map.values()).sort((a, b) => {
+            const left = new Date(a.created_at || a.createdAt || 0).getTime();
+            const right = new Date(b.created_at || b.createdAt || 0).getTime();
+            return left - right;
+          });
+        } else if (!state.activeChatId) {
+          state.messages = incoming;
+          state.activeChatId = chatId;
+        }
+        // Ответ для другого (уже закрытого) чата игнорируем
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         const msg = action.payload;
-        state.messages.push({ ...msg, id: `local-${Date.now()}` });
+        if (!msg) return;
+
+        const dialog = state.dialogs.find((d) => d.chat_id === msg.chat_id);
+        if (dialog) {
+          dialog.last_message = msg;
+        }
+
+        if (state.activeChatId === msg.chat_id) {
+          const exists = state.messages.some((m) => m.id === msg.id);
+          if (!exists) state.messages.push(msg);
+        }
       });
   },
 });

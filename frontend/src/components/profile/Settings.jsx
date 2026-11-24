@@ -19,6 +19,12 @@ const isIosDevice = () => {
   return iphoneOrIpad || ipadOs;
 };
 
+const getIosVersion = () => {
+  if (typeof navigator === 'undefined') return null;
+  const match = String(navigator.userAgent).match(/OS (\d+)[_.](\d+)/);
+  return match ? `${match[1]}.${match[2]}` : null;
+};
+
 const reasonMessage = (reason) => {
   if (!reason) return 'Не удалось включить уведомления.';
   if (reason === 'push-not-supported') {
@@ -51,6 +57,7 @@ const Settings = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [ios] = useState(isIosDevice);
+  const [iosVersion] = useState(getIosVersion);
 
   // Реальное состояние берём из браузера, а не только из Redux
   useEffect(() => {
@@ -174,17 +181,26 @@ const Settings = () => {
 
       {!supported && (
         <div className={styles.hint}>
-          {ios
-            ? 'На iPhone push-уведомления работают только в приложении, установленном на экран «Домой» (iOS 16.4 и новее). Установите приложение и включите уведомления уже в нём.'
-            : 'Этот браузер не поддерживает push-уведомления. Откройте личный кабинет в Chrome, Edge или Safari.'}
+          {ios ? (
+            <>
+              Push-уведомления на iPhone работают только в приложении,
+              добавленном на экран «Домой», и начиная с <strong>iOS 16.4</strong>.
+              {iosVersion ? ` На этом устройстве iOS ${iosVersion}.` : ''}{' '}
+              Если обновление iOS недоступно, включить push на этом телефоне
+              нельзя — сообщения будут приходить в чат, пока приложение
+              открыто.
+            </>
+          ) : (
+            'Этот браузер не поддерживает push-уведомления. Откройте личный кабинет в Chrome, Edge или Safari.'
+          )}
         </div>
       )}
 
       {supported && ios && (
         <div className={styles.hint}>
-          На iPhone уведомления работают в приложении, установленном на экран
-          «Домой» (iOS 16.4+). Если уведомления не включаются — установите
-          приложение.
+          На iPhone уведомления работают в приложении с экрана «Домой».
+          Если ползунок не включается — проверьте, что приложение добавлено на
+          экран «Домой», и разрешите уведомления в настройках iOS.
         </div>
       )}
     </Card>
