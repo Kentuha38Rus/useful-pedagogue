@@ -531,6 +531,15 @@ const DashboardPage = () => {
                         loading={personLoading}
                         error={personUser ? null : userDetails.error}
                         onBack={() => closePerson('teacher')}
+                        teachers={details.teachers || []}
+                        onSubstituteSaved={() => {
+                          if (selectedTeacherId) {
+                            dispatch(fetchUserDetails(selectedTeacherId));
+                          }
+                          dispatch(
+                            fetchStats({ date: getLocalDateString() })
+                          );
+                        }}
                       />
                     )
                   )}
@@ -671,7 +680,11 @@ const DashboardPage = () => {
                                   <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>
                                     {[
                                       l.courseName,
-                                      l.teacherName ? `Учитель: ${l.teacherName}` : null,
+                                      l.teacherName
+                                        ? `${l.isSubstituted ? 'Замена' : 'Учитель'}: ${
+                                            l.teacherName
+                                          }`
+                                        : null,
                                       l.topic,
                                     ]
                                       .filter(Boolean)

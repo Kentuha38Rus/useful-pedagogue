@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { loadUser } from './store/slices/authSlice';
 import { initSocket, fetchDialogs } from './store/slices/chatSlice';
+import './utils/installPrompt';
 
 import BottomNav from './components/navigation/BottomNav';
 import Header from './components/navigation/Header';

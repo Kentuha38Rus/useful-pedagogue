@@ -159,16 +159,30 @@ export const deleteUser = createAsyncThunk('admin/deleteUser', async (userId) =>
   return userId;
 });
 
-export const createGroup = createAsyncThunk('admin/createGroup', async (groupData) => {
-  const response = await api.post('/admin/groups', groupData);
-  return response.data;
-});
+const getApiErrorMessage = (err, fallback) =>
+  err.response?.data?.message || err.response?.data?.error || fallback;
+
+export const createGroup = createAsyncThunk(
+  'admin/createGroup',
+  async (groupData, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/admin/groups', groupData);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(getApiErrorMessage(err, 'Не удалось создать группу'));
+    }
+  }
+);
 
 export const updateGroup = createAsyncThunk(
   'admin/updateGroup',
-  async ({ id, groupData }) => {
-    const response = await api.patch(`/admin/groups/${id}`, groupData);
-    return response.data;
+  async ({ id, groupData }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/admin/groups/${id}`, groupData);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(getApiErrorMessage(err, 'Не удалось сохранить группу'));
+    }
   }
 );
 
@@ -176,6 +190,23 @@ export const deleteGroup = createAsyncThunk('admin/deleteGroup', async (groupId)
   await api.delete(`/admin/groups/${groupId}`);
   return groupId;
 });
+
+// Замена преподавателя на конкретном занятии
+export const substituteLessonTeacher = createAsyncThunk(
+  'admin/substituteLessonTeacher',
+  async ({ lessonId, teacherId }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/admin/lessons/${lessonId}/substitute`, {
+        teacherId,
+      });
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        getApiErrorMessage(err, 'Не удалось назначить преподавателя')
+      );
+    }
+  }
+);
 
 export const createCourse = createAsyncThunk('admin/createCourse', async (courseData) => {
   const response = await api.post('/admin/courses', courseData);
@@ -194,9 +225,18 @@ export const fetchAvailableChildren = createAsyncThunk('admin/fetchAvailableChil
 
 export const addChildToGroup = createAsyncThunk(
   'admin/addChildToGroup',
-  async ({ childId, groupId }) => {
-    const response = await api.post('/admin/groups/add-child', { childId, groupId });
-    return response.data;
+  async ({ childId, groupId }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/admin/groups/add-child', {
+        childId,
+        groupId,
+      });
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        getApiErrorMessage(err, 'Не удалось добавить ребёнка в группу')
+      );
+    }
   }
 );
 

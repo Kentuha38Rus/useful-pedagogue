@@ -16,6 +16,7 @@ router.get('/', notificationController.getNotifications);
 router.patch('/:id', notificationController.markNotificationAsRead);
 router.post('/push', roleCheck(['admin']), notificationController.sendPush);
 router.post('/subscribe', notificationController.saveSubscription);
+router.delete('/subscribe', notificationController.deleteSubscription);
 
 // Напоминания
 router.post(

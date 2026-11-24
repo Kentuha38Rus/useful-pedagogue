@@ -5,6 +5,7 @@ import { logout, fetchChildren, removeChildThunk } from '../../store/slices/auth
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import ChildProfile from '../../components/profile/ChildProfile';
+import InstallApp from '../../components/profile/InstallApp';
 import Settings from '../../components/profile/Settings';
 import styles from './ProfilePage.module.scss';
 
@@ -102,6 +103,7 @@ const ProfilePage = () => {
         )}
       </Card>
 
+      <InstallApp />
       <Settings />
 
       {showChildModal && (

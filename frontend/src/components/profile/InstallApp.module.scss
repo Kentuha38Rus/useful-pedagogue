@@ -1,0 +1,51 @@
+@import '../../assets/styles/variables';
+
+.installCard {
+  margin: $spacing-md;
+}
+
+.header {
+  display: flex;
+  gap: $spacing-md;
+  align-items: flex-start;
+  margin-bottom: $spacing-md;
+
+  @media (max-width: $breakpoint-mobile) {
+    gap: $spacing-sm;
+  }
+}
+
+.icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.text {
+  min-width: 0;
+
+  h3 {
+    margin: 0 0 4px;
+    font-size: $font-size-large;
+    @media (max-width: $breakpoint-mobile) {
+      font-size: $font-size-large-mobile;
+    }
+  }
+
+  p {
+    margin: 0;
+    font-size: $font-size-small;
+    line-height: 1.45;
+    color: #666;
+  }
+}
+
+.hint {
+  margin-top: $spacing-md;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius;
+  background: $background;
+  font-size: $font-size-small;
+  line-height: 1.5;
+  color: $text-primary;
+}

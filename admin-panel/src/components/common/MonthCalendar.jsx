@@ -34,7 +34,7 @@ const pluralLessons = (count) => {
  * Месячный календарь с отмеченными днями, в которые есть занятия.
  * Используется в дашборде для расписания учителя.
  */
-const MonthCalendar = ({ lessons = [], loading = false }) => {
+const MonthCalendar = ({ lessons = [], loading = false, onSubstitute }) => {
   const now = new Date();
   const [monthDate, setMonthDate] = useState(
     new Date(now.getFullYear(), now.getMonth(), 1)
@@ -185,7 +185,21 @@ const MonthCalendar = ({ lessons = [], loading = false }) => {
                   {lesson.topic && (
                     <div className="mc-lesson-topic">{lesson.topic}</div>
                   )}
+                  {lesson.substituteTeacherId && lesson.substituteTeacherName && (
+                    <div className="mc-lesson-topic">
+                      Замена: {lesson.substituteTeacherName}
+                    </div>
+                  )}
                 </div>
+                {onSubstitute && (
+                  <button
+                    type="button"
+                    className="mc-substitute-btn"
+                    onClick={() => onSubstitute(lesson)}
+                  >
+                    Заменить
+                  </button>
+                )}
               </div>
             ))
           )}

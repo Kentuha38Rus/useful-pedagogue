@@ -12,6 +12,23 @@ export const requestNotificationPermission = async () => {
 };
 
 // ----------------------------------------------------------------
+// VAPID-ключ приходит строкой base64url. Safari/iOS требует Uint8Array,
+// поэтому конвертируем — иначе подписка работает не во всех браузерах.
+// ----------------------------------------------------------------
+const urlBase64ToUint8Array = (base64String) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  const raw = atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) {
+    output[i] = raw.charCodeAt(i);
+  }
+  return output;
+};
+
+// ----------------------------------------------------------------
 // Подписка на push.
 // Возвращает { ok: true } при успехе,
 // { ok: false, reason } при неудаче.
@@ -34,7 +51,12 @@ export const subscribePush = async () => {
     }
 
     // 2. Service Worker
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('service-worker-timeout')), 15000)
+      ),
+    ]);
     if (!registration) {
       console.warn('[push] no service worker registration');
       return { ok: false, reason: 'no-sw' };
@@ -55,7 +77,7 @@ export const subscribePush = async () => {
       console.log('[push] creating new subscription...');
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: vapidKey,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
       console.log(
         '[push] subscription created:',
@@ -115,13 +137,41 @@ export const unsubscribePush = async () => {
   try {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
+    const endpoint = subscription ? subscription.endpoint : null;
     if (subscription) {
       await subscription.unsubscribe();
       console.log('[push] unsubscribed locally');
     }
-    return { ok: true };
+    return { ok: true, endpoint };
   } catch (err) {
     console.warn('[push] unsubscribe error:', err);
+    return { ok: false, reason: err?.message };
+  }
+};
+
+// Удалить подписку на сервере (чтобы уведомления точно перестали приходить)
+export const deletePushSubscriptionOnServer = async (endpoint) => {
+  const apiUrl =
+    import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const token = localStorage.getItem('token');
+  if (!token) return { ok: false, reason: 'no-token' };
+
+  try {
+    const resp = await fetch(`${apiUrl}/notifications/subscribe`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(endpoint ? { endpoint } : {}),
+    });
+    if (!resp.ok) {
+      console.warn('[push] delete subscription failed:', resp.status);
+      return { ok: false, reason: `http-${resp.status}` };
+    }
+    return { ok: true, data: await resp.json() };
+  } catch (err) {
+    console.warn('[push] delete subscription error:', err);
     return { ok: false, reason: err?.message };
   }
 };

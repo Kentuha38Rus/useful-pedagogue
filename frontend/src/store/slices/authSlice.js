@@ -86,11 +86,21 @@ export const removeChildThunk = createAsyncThunk(
 
 const initialImpersonation = getImpersonation();
 
+const getStoredPushEnabled = () => {
+  try {
+    const stored = localStorage.getItem('pushEnabled');
+    if (stored === null) return true;
+    return stored === '1';
+  } catch (error) {
+    return true;
+  }
+};
+
 const initialState = {
   user: null,
   children: [],
   courses: [],
-  settings: { pushEnabled: true },
+  settings: { pushEnabled: getStoredPushEnabled() },
   isAuthenticated: false,
   tenant: null,            
   isPlatformAdmin: false,  
@@ -137,6 +147,16 @@ const authSlice = createSlice({
     },
     updateSettings: (state, action) => {
       state.settings = { ...state.settings, ...action.payload };
+      if (action.payload && action.payload.pushEnabled !== undefined) {
+        try {
+          localStorage.setItem(
+            'pushEnabled',
+            action.payload.pushEnabled ? '1' : '0'
+          );
+        } catch (error) {
+          // localStorage может быть недоступен (приватный режим) — не критично
+        }
+      }
     },
     setUser: (state, action) => {
       applyUserToState(state, action.payload);

@@ -165,6 +165,7 @@ const GroupsPage = () => {
   const [editingGroup, setEditingGroup] = useState(null);
   const [showAddChildModal, setShowAddChildModal] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [formError, setFormError] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -218,6 +219,7 @@ const GroupsPage = () => {
 
   const handleEdit = (group) => {
     setEditingGroup(group);
+    setFormError('');
     setFormData({
       name: group.name || '',
       courseId: group.courseId || '',
@@ -231,6 +233,7 @@ const GroupsPage = () => {
   const closeForm = () => {
     setShowForm(false);
     setEditingGroup(null);
+    setFormError('');
     setFormData({
       name: '',
       courseId: '',
@@ -242,6 +245,7 @@ const GroupsPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('');
     const payload = {
       name: formData.name,
       courseId: formData.courseId,
@@ -261,7 +265,11 @@ const GroupsPage = () => {
       dispatch(fetchGroups());
     } catch (error) {
       console.error('Ошибка сохранения группы:', error);
-      alert('Не удалось сохранить группу');
+      setFormError(
+        typeof error === 'string'
+          ? error
+          : error?.message || 'Не удалось сохранить группу'
+      );
     }
   };
 
@@ -308,6 +316,7 @@ const GroupsPage = () => {
             if (showForm) closeForm();
             else {
               setEditingGroup(null);
+              setFormError('');
               setFormData({
                 name: '',
                 courseId: '',
@@ -327,6 +336,23 @@ const GroupsPage = () => {
         <Card style={{ marginBottom: '20px', padding: '20px' }}>
           <form onSubmit={handleSubmit}>
             <h3>{editingGroup ? 'Редактировать группу' : 'Создать группу'}</h3>
+
+            {formError && (
+              <div
+                style={{
+                  background: '#fee2e2',
+                  color: '#7f1d1d',
+                  border: '1px solid #fecaca',
+                  borderRadius: 8,
+                  padding: '8px 10px',
+                  marginBottom: 12,
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                }}
+              >
+                ⚠️ {formError}
+              </div>
+            )}
 
             <Input
               placeholder="Название группы"

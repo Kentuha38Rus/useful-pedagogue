@@ -144,7 +144,7 @@ async function processLessonRemindersForLessons(lessons, adminId, io, tenantId, 
     const groupName = lesson.group.name || '';
     const timeRange = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
 
-    const teacher = lesson.group.teacher;
+    const teacher = lesson.substituteTeacher || lesson.group.teacher;
     const notifyTeacher =
       teacher &&
       String(teacher.id) !== String(adminId) &&
@@ -432,6 +432,23 @@ exports.saveSubscription = async (req, res, next) => {
   }
 };
 
+// Удаление подписки: используется переключателем уведомлений в личном кабинете
+exports.deleteSubscription = async (req, res, next) => {
+  try {
+    const tid = requireTenant(req);
+    const userId = req.user.id;
+    const endpoint = req.body ? req.body.endpoint : null;
+
+    const where = { user_id: userId, tenant_id: tid };
+    if (endpoint) where.endpoint = endpoint;
+
+    const removed = await PushSubscription.destroy({ where });
+    res.json({ success: true, removed });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // =============== Напоминания ===============
 
 exports.sendLessonRemindersForLesson = async (req, res, next) => {
@@ -478,6 +495,7 @@ exports.sendLessonRemindersForLesson = async (req, res, next) => {
             },
           ],
         },
+        { model: User, as: 'substituteTeacher', attributes: ['id', 'name', 'email', 'role'] },
       ],
     });
 
@@ -563,6 +581,7 @@ exports.sendLessonReminderForPerson = async (req, res, next) => {
             },
           ],
         },
+        { model: User, as: 'substituteTeacher', attributes: ['id', 'name', 'email', 'role'] },
       ],
     });
 
@@ -580,8 +599,11 @@ exports.sendLessonReminderForPerson = async (req, res, next) => {
       }
     }
     if (teacherId) {
-      if (!group?.teacher || String(group.teacher.id) !== String(teacherId)) {
-        return res.status(400).json({ error: 'Teacher is not assigned to this group' });
+      const actualTeacher = lesson.substituteTeacher || group?.teacher;
+      if (!actualTeacher || String(actualTeacher.id) !== String(teacherId)) {
+        return res.status(400).json({
+          error: 'Teacher is not assigned to this lesson',
+        });
       }
     }
 
@@ -648,6 +670,7 @@ exports.sendLessonRemindersForToday = async (req, res, next) => {
             },
           ],
         },
+        { model: User, as: 'substituteTeacher', attributes: ['id', 'name', 'email', 'role'] },
       ],
     });
 

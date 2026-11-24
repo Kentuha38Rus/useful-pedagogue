@@ -29,6 +29,9 @@ router.post('/groups', AdminController.createGroup);
 router.patch('/groups/:id', AdminController.updateGroup);
 router.delete('/groups/:id', AdminController.deleteGroup);
 
+// Занятия: замена преподавателя на конкретную дату
+router.patch('/lessons/:id/substitute', AdminController.substituteLessonTeacher);
+
 // Дети и группы
 router.get('/children/available', AdminController.getAvailableChildren);
 router.post('/groups/add-child', AdminController.addChildToGroup);

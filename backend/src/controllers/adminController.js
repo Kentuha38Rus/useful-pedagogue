@@ -19,6 +19,8 @@ const ChatService = require('../services/chatService');
 const {
   generateLessonsForGroup,
   cancelMismatchedFutureLessons,
+  parseSchedule,
+  WEEKS_AHEAD,
 } = require('../jobs/recurringLessonsJob');
 const { requireTenant } = require('../utils/helpers');
 
@@ -70,6 +72,207 @@ const computeLessonStatus = (lesson, attendanceCount, now) => {
   const endAt = new Date(`${lesson.date}T${lesson.endTime}`);
   if (!Number.isNaN(endAt.getTime()) && endAt < now) return 'no_mark';
   return 'planned';
+};
+
+// ---------- Проверки конфликтов при работе с группами ----------
+
+const DAY_NAMES_RU = {
+  monday: 'понедельник',
+  tuesday: 'вторник',
+  wednesday: 'среда',
+  thursday: 'четверг',
+  friday: 'пятница',
+  saturday: 'суббота',
+  sunday: 'воскресенье',
+};
+
+const timeToMinutes = (value) => {
+  const [hours, minutes] = String(value).split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
+
+const formatSlot = (slot) =>
+  `${String(slot.start).slice(0, 5)}–${String(slot.end).slice(0, 5)}`;
+
+const dayLabel = (day) => DAY_NAMES_RU[day] || day;
+
+const findSlotsOverlap = (first, second) => {
+  for (const day of Object.keys(first)) {
+    const secondSlots = second[day];
+    if (!secondSlots || secondSlots.length === 0) continue;
+    for (const a of first[day]) {
+      for (const b of secondSlots) {
+        if (
+          timeToMinutes(a.start) < timeToMinutes(b.end) &&
+          timeToMinutes(a.end) > timeToMinutes(b.start)
+        ) {
+          return { day, slot: a };
+        }
+      }
+    }
+  }
+  return null;
+};
+
+// Проверяет, что в каждом дне время начала раньше времени окончания
+const validateScheduleSlots = (schedule) => {
+  const parsed = parseSchedule(schedule);
+  if (!parsed) return null;
+  for (const [day, slots] of Object.entries(parsed)) {
+    for (const slot of slots) {
+      if (timeToMinutes(slot.start) >= timeToMinutes(slot.end)) {
+        return { day, slot };
+      }
+    }
+  }
+  return null;
+};
+
+const findGroupNameConflict = (tenantId, name, excludeGroupId) => {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) return Promise.resolve(null);
+  const where = { tenantId, name: { [Op.iLike]: trimmed } };
+  if (excludeGroupId) where.id = { [Op.ne]: excludeGroupId };
+  return Group.findOne({ where, attributes: ['id', 'name'] });
+};
+
+const findTeacherScheduleConflict = async ({
+  tenantId,
+  teacherId,
+  schedule,
+  excludeGroupId,
+}) => {
+  const parsed = parseSchedule(schedule);
+  if (!parsed) return null;
+
+  const where = { tenantId, teacherId };
+  if (excludeGroupId) where.id = { [Op.ne]: excludeGroupId };
+
+  const groups = await Group.findAll({
+    where,
+    attributes: ['id', 'name', 'schedule'],
+  });
+
+  for (const group of groups) {
+    const other = parseSchedule(group.schedule);
+    if (!other) continue;
+    const overlap = findSlotsOverlap(parsed, other);
+    if (overlap) {
+      return { groupName: group.name, day: overlap.day, slot: overlap.slot };
+    }
+  }
+  return null;
+};
+
+const findChildScheduleConflict = async ({
+  tenantId,
+  childId,
+  schedule,
+  excludeGroupId,
+}) => {
+  const parsed = parseSchedule(schedule);
+  if (!parsed) return null;
+
+  const groupInclude = {
+    model: Group,
+    as: 'groups',
+    through: { attributes: [] },
+    attributes: ['id', 'name', 'schedule'],
+  };
+  if (excludeGroupId) {
+    groupInclude.where = { id: { [Op.ne]: excludeGroupId } };
+    groupInclude.required = false;
+  }
+
+  const child = await Child.findOne({
+    where: { id: childId, tenantId },
+    include: [groupInclude],
+  });
+
+  for (const group of child ? child.groups || [] : []) {
+    const other = parseSchedule(group.schedule);
+    if (!other) continue;
+    const overlap = findSlotsOverlap(parsed, other);
+    if (overlap) {
+      return { groupName: group.name, day: overlap.day, slot: overlap.slot };
+    }
+  }
+  return null;
+};
+
+const WEEKDAY_KEYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+];
+
+const formatShortDate = (value) => {
+  const text = String(value).slice(0, 10);
+  const [year, month, day] = text.split('-');
+  return year && month && day ? `${day}.${month}.${year}` : text;
+};
+
+// Проверяет уже созданные занятия преподавателя (включая замены).
+// Нужно, чтобы новая группа не пересеклась с разовой заменой на будущую дату.
+const findTeacherLessonConflict = async ({
+  tenantId,
+  teacherId,
+  schedule,
+  excludeGroupId,
+}) => {
+  const parsed = parseSchedule(schedule);
+  if (!parsed) return null;
+
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(start);
+  end.setDate(start.getDate() + WEEKS_AHEAD * 7);
+
+  const where = {
+    tenantId,
+    date: { [Op.between]: [toDateString(start), toDateString(end)] },
+    is_cancelled: false,
+  };
+  if (excludeGroupId) where.groupId = { [Op.ne]: excludeGroupId };
+
+  const lessons = await Lesson.findAll({
+    where,
+    attributes: ['id', 'date', 'startTime', 'endTime', 'substituteTeacherId'],
+    include: [
+      { model: Group, as: 'group', attributes: ['id', 'name', 'teacherId'] },
+    ],
+  });
+
+  for (const lesson of lessons) {
+    const effectiveTeacherId =
+      lesson.substituteTeacherId ||
+      (lesson.group ? lesson.group.teacherId : null);
+    if (String(effectiveTeacherId) !== String(teacherId)) continue;
+
+    const date = new Date(`${String(lesson.date).slice(0, 10)}T00:00:00`);
+    const dayKey = WEEKDAY_KEYS[date.getDay()];
+    const slots = parsed[dayKey];
+    if (!slots) continue;
+
+    for (const slot of slots) {
+      if (
+        timeToMinutes(slot.start) < timeToMinutes(lesson.endTime) &&
+        timeToMinutes(slot.end) > timeToMinutes(lesson.startTime)
+      ) {
+        return {
+          groupName: lesson.group ? lesson.group.name : null,
+          date: lesson.date,
+          startTime: lesson.startTime,
+          endTime: lesson.endTime,
+        };
+      }
+    }
+  }
+  return null;
 };
 
 class AdminController {
@@ -185,6 +388,7 @@ class AdminController {
                 },
               ],
             },
+            { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
           ],
           order: [['startTime', 'ASC']],
         }),
@@ -218,10 +422,10 @@ class AdminController {
         const attCount = attMap.get(l.id) || 0;
         const status = computeLessonStatus(l, attCount, now);
         const group = l.group;
-        const teacher =
-          group && group.teacher
-            ? { id: group.teacher.id, name: group.teacher.name }
-            : null;
+        const actualTeacher = l.substituteTeacher || (group ? group.teacher : null);
+        const teacher = actualTeacher
+          ? { id: actualTeacher.id, name: actualTeacher.name }
+          : null;
         const children = ((group && group.children) || []).map((child) => ({
           id: child.id,
           name: [child.surname, child.name].filter(Boolean).join(' ') || 'Без имени',
@@ -236,6 +440,10 @@ class AdminController {
           groupId: group ? group.id : null,
           groupName: group ? group.name : null,
           teacherName: teacher ? teacher.name : null,
+          substituteTeacherName: l.substituteTeacher
+            ? l.substituteTeacher.name
+            : null,
+          isSubstituted: Boolean(l.substituteTeacher),
           courseName: group && group.course ? group.course.name : null,
           status,
           participants: { teacher, children },
@@ -721,21 +929,42 @@ class AdminController {
 
       const plain = user.toJSON();
 
-      // Расписание учителя на месяц — отдельным запросом, без тяжёлых join'ов
-      if (user.role === 'teacher' && plain.groups && plain.groups.length > 0) {
-        const groupIds = plain.groups.map((group) => group.id);
-        const lessons = await Lesson.findAll({
-          where: {
-            tenantId: tid,
-            groupId: { [Op.in]: groupIds },
-            is_cancelled: false,
-          },
-          attributes: ['id', 'groupId', 'date', 'startTime', 'endTime', 'topic'],
-          order: [['date', 'ASC'], ['startTime', 'ASC']],
-        });
+      // Расписание учителя на месяц: свои занятия + занятия, где он замена
+      if (user.role === 'teacher') {
+        const groupIds = (plain.groups || []).map((group) => group.id);
+        const lessonAttributes = [
+          'id',
+          'groupId',
+          'date',
+          'startTime',
+          'endTime',
+          'topic',
+          'substituteTeacherId',
+        ];
+
+        const ownLessons = groupIds.length
+          ? await Lesson.findAll({
+              where: {
+                tenantId: tid,
+                groupId: { [Op.in]: groupIds },
+                is_cancelled: false,
+                // Занятия, которые не отданы другому преподавателю
+                [Op.or]: [
+                  { substituteTeacherId: null },
+                  { substituteTeacherId: user.id },
+                ],
+              },
+              attributes: lessonAttributes,
+              include: [
+                { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
+              ],
+              order: [['date', 'ASC'], ['startTime', 'ASC']],
+            })
+          : [];
 
         const lessonsByGroup = {};
-        lessons.forEach((lesson) => {
+        ownLessons.forEach((lesson) => {
+          const group = (plain.groups || []).find((g) => g.id === lesson.groupId);
           if (!lessonsByGroup[lesson.groupId]) lessonsByGroup[lesson.groupId] = [];
           lessonsByGroup[lesson.groupId].push({
             id: lesson.id,
@@ -743,13 +972,60 @@ class AdminController {
             startTime: lesson.startTime,
             endTime: lesson.endTime,
             topic: lesson.topic,
+            groupTeacherId: group ? group.teacherId : null,
+            groupTeacherName: user.name,
+            substituteTeacherId: lesson.substituteTeacherId,
+            substituteTeacherName: lesson.substituteTeacher
+              ? lesson.substituteTeacher.name
+              : null,
           });
         });
 
-        plain.groups = plain.groups.map((group) => ({
+        plain.groups = (plain.groups || []).map((group) => ({
           ...group,
           lessons: lessonsByGroup[group.id] || [],
         }));
+
+        // Занятия в чужих группах, где этот преподаватель назначен заменой
+        const substituted = await Lesson.findAll({
+          where: {
+            tenantId: tid,
+            substituteTeacherId: user.id,
+            is_cancelled: false,
+          },
+          attributes: lessonAttributes,
+          include: [
+            {
+              model: Group,
+              as: 'group',
+              attributes: ['id', 'name', 'teacherId'],
+              include: [
+                { model: Course, as: 'course', attributes: ['id', 'name'] },
+                { model: User, as: 'teacher', attributes: ['id', 'name'] },
+              ],
+            },
+          ],
+          order: [['date', 'ASC'], ['startTime', 'ASC']],
+        });
+
+        plain.substituteLessons = substituted
+          .filter((lesson) => !groupIds.includes(lesson.groupId))
+          .map((lesson) => ({
+            id: lesson.id,
+            date: lesson.date,
+            startTime: lesson.startTime,
+            endTime: lesson.endTime,
+            topic: lesson.topic,
+            groupId: lesson.groupId,
+            groupName: lesson.group ? lesson.group.name : null,
+            courseName:
+              lesson.group && lesson.group.course ? lesson.group.course.name : null,
+            groupTeacherId: lesson.group ? lesson.group.teacherId : null,
+            groupTeacherName:
+              lesson.group && lesson.group.teacher ? lesson.group.teacher.name : null,
+            substituteTeacherId: lesson.substituteTeacherId,
+            substituteTeacherName: user.name,
+          }));
       }
 
       res.status(200).json(plain);
@@ -923,7 +1199,18 @@ class AdminController {
           groupId: id,
           date: { [Op.between]: [start, end] },
         },
-        attributes: ['id', 'date', 'startTime', 'endTime', 'topic', 'is_cancelled'],
+        attributes: [
+          'id',
+          'date',
+          'startTime',
+          'endTime',
+          'topic',
+          'is_cancelled',
+          'substituteTeacherId',
+        ],
+        include: [
+          { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
+        ],
         order: [['date', 'ASC'], ['startTime', 'ASC']],
       });
 
@@ -953,6 +1240,15 @@ class AdminController {
           topic: lesson.topic,
           attendanceCount,
           status: computeLessonStatus(lesson, attendanceCount, now),
+          substituteTeacherId: lesson.substituteTeacherId,
+          substituteTeacherName: lesson.substituteTeacher
+            ? lesson.substituteTeacher.name
+            : null,
+          teacherName: lesson.substituteTeacher
+            ? lesson.substituteTeacher.name
+            : group.teacher
+            ? group.teacher.name
+            : null,
         };
       });
 
@@ -1009,11 +1305,61 @@ class AdminController {
       if (!teacher || teacher.role !== 'teacher')
         return res.status(400).json({ message: 'Invalid teacher' });
 
+      const groupName = String(name || '').trim();
+      if (!groupName) {
+        return res.status(400).json({ message: 'Укажите название группы' });
+      }
+
+      const nameConflict = await findGroupNameConflict(tid, groupName);
+      if (nameConflict) {
+        return res.status(409).json({
+          message: `Группа с названием «${groupName}» уже существует`,
+        });
+      }
+
+      const scheduleError = validateScheduleSlots(schedule);
+      if (scheduleError) {
+        return res.status(400).json({
+          message: `Проверьте расписание: ${dayLabel(scheduleError.day)}, ${formatSlot(
+            scheduleError.slot
+          )} — время начала позже окончания`,
+        });
+      }
+
+      const teacherConflict = await findTeacherScheduleConflict({
+        tenantId: tid,
+        teacherId,
+        schedule,
+      });
+      if (teacherConflict) {
+        return res.status(409).json({
+          message:
+            `Конфликт: преподаватель уже ведёт группу «${teacherConflict.groupName}» ` +
+            `в ${dayLabel(teacherConflict.day)}, ${formatSlot(teacherConflict.slot)}`,
+        });
+      }
+
+      const teacherLessonConflict = await findTeacherLessonConflict({
+        tenantId: tid,
+        teacherId,
+        schedule,
+      });
+      if (teacherLessonConflict) {
+        return res.status(409).json({
+          message:
+            `Конфликт: у преподавателя уже есть занятие` +
+            `${teacherLessonConflict.groupName ? ` в группе «${teacherLessonConflict.groupName}»` : ''} ` +
+            `${formatShortDate(teacherLessonConflict.date)} ` +
+            `${String(teacherLessonConflict.startTime).slice(0, 5)}–` +
+            `${String(teacherLessonConflict.endTime).slice(0, 5)}`,
+        });
+      }
+
       const group = await Group.create({
         tenantId: tid,
         courseId,
         teacherId,
-        name,
+        name: groupName,
         schedule: schedule || null,
         maxStudents: maxStudents || 10,
       });
@@ -1078,7 +1424,103 @@ class AdminController {
           return res.status(400).json({ message: 'Invalid teacher' });
       }
 
+      const nextName = name !== undefined ? String(name || '').trim() : group.name;
+      if (!nextName) {
+        return res.status(400).json({ message: 'Укажите название группы' });
+      }
+
+      const nameConflict = await findGroupNameConflict(tid, nextName, group.id);
+      if (nameConflict) {
+        return res.status(409).json({
+          message: `Группа с названием «${nextName}» уже существует`,
+        });
+      }
+
       const newSchedule = schedule !== undefined ? schedule : group.schedule;
+      const scheduleError = validateScheduleSlots(newSchedule);
+      if (scheduleError) {
+        return res.status(400).json({
+          message: `Проверьте расписание: ${dayLabel(scheduleError.day)}, ${formatSlot(
+            scheduleError.slot
+          )} — время начала позже окончания`,
+        });
+      }
+
+      const nextTeacherId = teacherId || group.teacherId;
+      const teacherConflict = await findTeacherScheduleConflict({
+        tenantId: tid,
+        teacherId: nextTeacherId,
+        schedule: newSchedule,
+        excludeGroupId: group.id,
+      });
+      if (teacherConflict) {
+        return res.status(409).json({
+          message:
+            `Конфликт: преподаватель уже ведёт группу «${teacherConflict.groupName}» ` +
+            `в ${dayLabel(teacherConflict.day)}, ${formatSlot(teacherConflict.slot)}`,
+        });
+      }
+
+      const teacherLessonConflict = await findTeacherLessonConflict({
+        tenantId: tid,
+        teacherId: nextTeacherId,
+        schedule: newSchedule,
+        excludeGroupId: group.id,
+      });
+      if (teacherLessonConflict) {
+        return res.status(409).json({
+          message:
+            `Конфликт: у преподавателя уже есть занятие` +
+            `${teacherLessonConflict.groupName ? ` в группе «${teacherLessonConflict.groupName}»` : ''} ` +
+            `${formatShortDate(teacherLessonConflict.date)} ` +
+            `${String(teacherLessonConflict.startTime).slice(0, 5)}–` +
+            `${String(teacherLessonConflict.endTime).slice(0, 5)}`,
+        });
+      }
+
+      // Если расписание меняется, проверяем, что у детей не появится накладка
+      if (schedule !== undefined) {
+        const links = await ChildGroup.findAll({
+          where: { groupId: id, tenantId: tid },
+          attributes: ['childId'],
+        });
+
+        for (const link of links) {
+          const childConflict = await findChildScheduleConflict({
+            tenantId: tid,
+            childId: link.childId,
+            schedule: newSchedule,
+            excludeGroupId: id,
+          });
+          if (childConflict) {
+            const child = await Child.findOne({
+              where: { id: link.childId, tenantId: tid },
+              attributes: ['id', 'name', 'surname'],
+            });
+            return res.status(409).json({
+              message:
+                `Конфликт: у ребёнка ${
+                  child
+                    ? [child.surname, child.name].filter(Boolean).join(' ')
+                    : link.childId
+                } уже есть группа «${childConflict.groupName}» ` +
+                `в ${dayLabel(childConflict.day)}, ${formatSlot(childConflict.slot)}`,
+            });
+          }
+        }
+      }
+
+      if (maxStudents) {
+        const currentCount = await ChildGroup.count({
+          where: { groupId: id, tenantId: tid },
+        });
+        if (maxStudents < currentCount) {
+          return res.status(400).json({
+            message: `В группе уже ${currentCount} детей — лимит не может быть меньше`,
+          });
+        }
+      }
+
       const tempGroup = { ...group.toJSON(), schedule: newSchedule };
       const cancelRes = await cancelMismatchedFutureLessons(tempGroup);
       if (cancelRes.cancelled) {
@@ -1089,8 +1531,8 @@ class AdminController {
 
       await group.update({
         courseId: courseId || group.courseId,
-        teacherId: teacherId || group.teacherId,
-        name: name || group.name,
+        teacherId: nextTeacherId,
+        name: nextName,
         schedule: newSchedule,
         maxStudents: maxStudents || group.maxStudents,
       });
@@ -1144,6 +1586,97 @@ class AdminController {
       if (!group) return res.status(404).json({ message: 'Group not found' });
       await group.destroy();
       res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Замена преподавателя на конкретном занятии (без изменения группы)
+  static async substituteLessonTeacher(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const { id } = req.params;
+      const rawTeacherId = req.body ? req.body.teacherId : undefined;
+
+      const lesson = await Lesson.findOne({
+        where: { id, tenantId: tid },
+        include: [
+          {
+            model: Group,
+            as: 'group',
+            attributes: ['id', 'name', 'teacherId'],
+            include: [{ model: User, as: 'teacher', attributes: ['id', 'name'] }],
+          },
+        ],
+      });
+      if (!lesson) return res.status(404).json({ message: 'Lesson not found' });
+
+      // null / пустая строка — вернуть основного преподавателя
+      if (rawTeacherId === null || rawTeacherId === undefined || rawTeacherId === '') {
+        await lesson.update({ substituteTeacherId: null });
+        return res.json({
+          id: lesson.id,
+          substituteTeacherId: null,
+          substituteTeacher: null,
+          message: 'На занятии снова основной преподаватель',
+        });
+      }
+
+      const teacher = await User.findOne({
+        where: { id: rawTeacherId, tenantId: tid },
+      });
+      if (!teacher || teacher.role !== 'teacher') {
+        return res.status(400).json({ message: 'Выберите преподавателя' });
+      }
+
+      if (String(teacher.id) === String(lesson.group.teacherId)) {
+        await lesson.update({ substituteTeacherId: null });
+        return res.json({
+          id: lesson.id,
+          substituteTeacherId: null,
+          substituteTeacher: null,
+          message: 'На занятии снова основной преподаватель',
+        });
+      }
+
+      const overlapping = await Lesson.findAll({
+        where: {
+          tenantId: tid,
+          id: { [Op.ne]: lesson.id },
+          date: lesson.date,
+          is_cancelled: false,
+          startTime: { [Op.lt]: lesson.endTime },
+          endTime: { [Op.gt]: lesson.startTime },
+        },
+        attributes: ['id', 'substituteTeacherId'],
+        include: [
+          { model: Group, as: 'group', attributes: ['id', 'name', 'teacherId'] },
+        ],
+      });
+
+      const busyLesson = overlapping.find((item) => {
+        const effectiveTeacherId =
+          item.substituteTeacherId || (item.group ? item.group.teacherId : null);
+        return String(effectiveTeacherId) === String(teacher.id);
+      });
+
+      if (busyLesson) {
+        return res.status(409).json({
+          message:
+            `Конфликт: у преподавателя ${teacher.name} уже есть занятие ` +
+            `${busyLesson.group ? `в группе «${busyLesson.group.name}» ` : ''}` +
+            'в это время',
+        });
+      }
+
+      await lesson.update({ substituteTeacherId: teacher.id });
+
+      res.json({
+        id: lesson.id,
+        substituteTeacherId: teacher.id,
+        substituteTeacher: { id: teacher.id, name: teacher.name },
+        message: `На занятии будет ${teacher.name}`,
+      });
     } catch (error) {
       next(error);
     }
@@ -1301,6 +1834,20 @@ class AdminController {
       });
       if (currentCount >= group.maxStudents)
         return res.status(400).json({ message: 'Group is full' });
+
+      const scheduleConflict = await findChildScheduleConflict({
+        tenantId: tid,
+        childId,
+        schedule: group.schedule,
+        excludeGroupId: groupId,
+      });
+      if (scheduleConflict) {
+        return res.status(409).json({
+          message:
+            `Конфликт: ребёнок уже занимается в группе «${scheduleConflict.groupName}» ` +
+            `в ${dayLabel(scheduleConflict.day)}, ${formatSlot(scheduleConflict.slot)}`,
+        });
+      }
 
       await ChildGroup.create({ tenantId: tid, childId, groupId });
 

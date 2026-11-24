@@ -37,7 +37,11 @@ const AddChildModal = ({ isOpen, onClose, groupId, onChildAdded }) => {
       onChildAdded();
       onClose();
     } catch (err) {
-      setError(err.message || 'Ошибка при добавлении ребенка');
+      setError(
+        typeof err === 'string'
+          ? err
+          : err?.message || 'Ошибка при добавлении ребенка'
+      );
     }
   };
 

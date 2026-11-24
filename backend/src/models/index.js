@@ -59,6 +59,10 @@ Group.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 Group.hasMany(Lesson, { foreignKey: 'groupId', as: 'lessons' });
 Lesson.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
 
+// Замена преподавателя на конкретном занятии
+User.hasMany(Lesson, { foreignKey: 'substituteTeacherId', as: 'substitutedLessons' });
+Lesson.belongsTo(User, { foreignKey: 'substituteTeacherId', as: 'substituteTeacher' });
+
 // many-to-many
 Child.belongsToMany(Group, {
   through: ChildGroup,

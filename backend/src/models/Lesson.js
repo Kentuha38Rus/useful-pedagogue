@@ -33,6 +33,12 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    // Кто фактически ведёт занятие, если основного преподавателя заменили
+    substituteTeacherId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'Users', key: 'id' },
+    },
     // 👇 Отменённые занятия остаются в БД, но не показываются и не напоминают
     is_cancelled: {
       type: DataTypes.BOOLEAN,

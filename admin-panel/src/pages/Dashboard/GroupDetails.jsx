@@ -110,6 +110,11 @@ const GroupDetails = ({ group, loading, error, onBack }) => {
                 <span className="dash-week-topic">
                   {lesson.topic || 'Без темы'}
                 </span>
+                {lesson.substituteTeacherName && (
+                  <span className="dash-week-note">
+                    замена: {lesson.substituteTeacherName}
+                  </span>
+                )}
                 <StatusBadge status={lesson.status} />
               </div>
             ))

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { subscribePush, onPushMessage } from '../utils/notifications';
 import { getSocket } from '../utils/socket';
@@ -6,6 +6,11 @@ import { getSocket } from '../utils/socket';
 const useNotifications = () => {
   const { settings, user } = useSelector((state) => state.auth);
   const [notifications, setNotifications] = useState([]);
+  const pushEnabledRef = useRef(settings?.pushEnabled !== false);
+
+  useEffect(() => {
+    pushEnabledRef.current = settings?.pushEnabled !== false;
+  }, [settings?.pushEnabled]);
 
   // Выносим синхронизацию в отдельную функцию
   const syncSubscription = useCallback(async () => {
@@ -62,7 +67,7 @@ const useNotifications = () => {
 
       if (message.type === 'push') {
         const payload = message.payload || {};
-        showBrowserNotification(payload);
+        if (pushEnabledRef.current) showBrowserNotification(payload);
         setNotifications((prev) => [payload, ...prev]);
       } else if (message.type === 'notification_action') {
         const { action, data } = message;
@@ -92,7 +97,7 @@ const useNotifications = () => {
 
     const handleNotification = (payload) => {
       setNotifications((prev) => [payload, ...prev]);
-      showBrowserNotification(payload);
+      if (pushEnabledRef.current) showBrowserNotification(payload);
     };
 
     const handleResponseUpdate = (payload) => {
@@ -105,7 +110,7 @@ const useNotifications = () => {
         raw: payload,
       };
       setNotifications((prev) => [notif, ...prev]);
-      showBrowserNotification(notif);
+      if (pushEnabledRef.current) showBrowserNotification(notif);
     };
 
     const handleResponseTimeout = (payload) => {
@@ -116,7 +121,7 @@ const useNotifications = () => {
         raw: payload,
       };
       setNotifications((prev) => [notif, ...prev]);
-      showBrowserNotification(notif);
+      if (pushEnabledRef.current) showBrowserNotification(notif);
     };
 
     socket.on('notification', handleNotification);

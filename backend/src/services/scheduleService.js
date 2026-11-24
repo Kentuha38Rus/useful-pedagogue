@@ -61,9 +61,23 @@ class ScheduleService {
       });
       const groupIds = groups.map((g) => g.id);
       return Lesson.findAll({
-        where: { tenantId, groupId: { [Op.in]: groupIds } },
+        where: {
+          tenantId,
+          [Op.or]: [
+            {
+              groupId: { [Op.in]: groupIds },
+              [Op.or]: [
+                { substituteTeacherId: null },
+                { substituteTeacherId: user.id },
+              ],
+            },
+            // Занятие в чужой группе, где этот преподаватель — замена
+            { substituteTeacherId: user.id },
+          ],
+        },
         include: [
           { model: Group, as: 'group', include: ['course'] },
+          { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
           { model: Attendance, as: 'attendances', include: ['child'] },
         ],
         order: [['date', 'ASC'], ['startTime', 'ASC']],
@@ -87,6 +101,7 @@ class ScheduleService {
         where: { tenantId, groupId: { [Op.in]: groupIds } },
         include: [
           { model: Group, as: 'group', include: ['course'] },
+          { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
           { model: Attendance, as: 'attendances' },
         ],
         order: [['date', 'ASC'], ['startTime', 'ASC']],
@@ -111,6 +126,7 @@ class ScheduleService {
       where: { groupId, tenantId },
       include: [
         { model: Group, as: 'group', include: ['course'] },
+        { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
         { model: Attendance, as: 'attendances', include: ['child'] },
       ],
       order: [['date', 'ASC'], ['startTime', 'ASC']],
