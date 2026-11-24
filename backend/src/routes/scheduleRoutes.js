@@ -10,6 +10,8 @@ router.use(auth);
 router.get('/me', scheduleController.getMySchedule);
 router.get('/group/:groupId', scheduleController.getGroupSchedule);
 router.post('/lessons', roleCheck('admin'), validate('createLesson'), scheduleController.createLesson);
+// Родитель подтверждает присутствие ребёнка на занятии (уведомление в чат админу)
+router.post('/lessons/:id/intent', scheduleController.respondToLessonIntent);
 router.patch('/lessons/:id/attendance', roleCheck('teacher', 'admin'), validate('attendance'), scheduleController.markAttendance);
 
 module.exports = router;

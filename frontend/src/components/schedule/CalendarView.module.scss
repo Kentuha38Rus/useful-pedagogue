@@ -147,16 +147,49 @@
 }
 
 .lessonItem {
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 10px 12px;
+  margin-bottom: $spacing-sm;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.lessonTop {
   display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   gap: $spacing-sm;
-  font-size: $font-size-small;
-  padding: 3px 0;
+  flex-wrap: wrap;
 }
 
 .lessonTime {
-  font-weight: 600;
+  font-weight: 700;
   color: $primary;
   white-space: nowrap;
+}
+
+.lessonGroup {
+  font-weight: 600;
+  font-size: $font-size-small;
+}
+
+.lessonMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  font-size: $font-size-small;
+  color: #555;
+}
+
+.lessonTopic {
+  margin-top: 4px;
+  font-size: $font-size-small;
+  color: #333;
 }
 
 .clearBtn {

@@ -149,17 +149,44 @@ const CalendarView = ({ lessons = [] }) => {
             <p className={styles.info}>Занятий нет</p>
           ) : (
             <ul className={styles.lessonList}>
-              {selectedLessons.map((lesson) => (
-                <li key={lesson.id} className={styles.lessonItem}>
-                  <span className={styles.lessonTime}>
-                    {formatTime(lesson.startTime)}–{formatTime(lesson.endTime)}
-                  </span>
-                  <span>
-                    {lesson.group?.name || 'Группа'}
-                    {lesson.topic ? ` · ${lesson.topic}` : ''}
-                  </span>
-                </li>
-              ))}
+              {selectedLessons.map((lesson) => {
+                const teacherName =
+                  lesson.substituteTeacher?.name ||
+                  lesson.group?.teacher?.name;
+                const isSubstitute = Boolean(lesson.substituteTeacher);
+
+                return (
+                  <li key={lesson.id} className={styles.lessonItem}>
+                    <div className={styles.lessonTop}>
+                      <span className={styles.lessonTime}>
+                        {formatTime(lesson.startTime)}–
+                        {formatTime(lesson.endTime)}
+                      </span>
+                      <span className={styles.lessonGroup}>
+                        {lesson.group?.name || 'Группа'}
+                      </span>
+                    </div>
+
+                    <div className={styles.lessonMeta}>
+                      {lesson.group?.course?.name && (
+                        <span>Курс: {lesson.group.course.name}</span>
+                      )}
+                      {teacherName && (
+                        <span>
+                          {isSubstitute ? 'Замена' : 'Преподаватель'}:{' '}
+                          {teacherName}
+                        </span>
+                      )}
+                    </div>
+
+                    {lesson.topic && (
+                      <div className={styles.lessonTopic}>
+                        Тема: {lesson.topic}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
           <button

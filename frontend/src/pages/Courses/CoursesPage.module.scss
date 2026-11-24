@@ -2,32 +2,33 @@
 
 .coursesPage {
   padding: $spacing-md;
+}
+
+.hero {
+  margin-bottom: $spacing-lg;
+
   h1 {
     font-size: $font-size-large;
-    margin-bottom: $spacing-md;
+    margin-bottom: $spacing-xs;
     @media (max-width: $breakpoint-mobile) {
       font-size: $font-size-large-mobile;
     }
   }
+
+  p {
+    margin: 0;
+    font-size: $font-size-small;
+    line-height: 1.5;
+    color: #666;
+  }
 }
 
-.filter {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
+.notice {
+  padding: $spacing-md;
   margin-bottom: $spacing-md;
-  select {
-    padding: 8px 12px;
-    border: 2px solid $border;
-    border-radius: $radius;
-    font-size: $font-size-base;
-    background: #fff;
-    @media (max-width: $breakpoint-mobile) {
-      font-size: $font-size-base-mobile;
-      padding: 6px 10px;
-      width: 100%;
-    }
-  }
+  font-size: $font-size-small;
+  line-height: 1.5;
+  color: #555;
 }
 
 .courseList {
@@ -38,55 +39,82 @@
 
 .courseCard {
   padding: $spacing-md;
+  border-left: 4px solid transparent;
+}
+
+.courseCardEnrolled {
+  border-left-color: #27ae60;
+  background: #f6fdf8;
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+  margin-bottom: $spacing-xs;
+
   h3 {
+    margin: 0;
     font-size: $font-size-large;
-    margin-bottom: $spacing-sm;
     @media (max-width: $breakpoint-mobile) {
       font-size: $font-size-large-mobile;
     }
   }
+}
+
+.badgeEnrolled,
+.badgeAvailable {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: $radius;
+  font-size: $font-size-small;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeEnrolled {
+  background: #27ae60;
+  color: #fff;
+}
+
+.badgeAvailable {
+  background: $secondary;
+  color: #fff;
+}
+
+.description {
+  margin: 4px 0 6px;
+  font-size: $font-size-base;
+  line-height: 1.5;
+  color: #333;
+  @media (max-width: $breakpoint-mobile) {
+    font-size: $font-size-base-mobile;
+  }
+}
+
+.price {
+  margin-top: 4px;
+  font-weight: 600;
+  font-size: $font-size-small;
+  color: $primary;
+}
+
+.enrolledInfo,
+.availableInfo {
+  margin-top: $spacing-sm;
+  padding-top: $spacing-sm;
+  border-top: 1px solid $border;
+
   p {
-    font-size: $font-size-base;
-    margin: 4px 0;
-    @media (max-width: $breakpoint-mobile) {
-      font-size: $font-size-base-mobile;
-    }
-  }
-  .age {
-    display: inline-block;
-    background: $secondary;
-    color: #fff;
-    padding: 2px 10px;
-    border-radius: $radius;
+    margin: 3px 0;
     font-size: $font-size-small;
-    margin-top: $spacing-sm;
-    @media (max-width: $breakpoint-mobile) {
-      font-size: $font-size-small - 1px;
-    }
+    line-height: 1.45;
   }
-  .enrolled, .notEnrolled {
-    margin-top: $spacing-sm;
-    .badge {
-      display: inline-block;
-      background: #27ae60;
-      color: #fff;
-      padding: 2px 10px;
-      border-radius: $radius;
-      font-size: $font-size-small;
-      @media (max-width: $breakpoint-mobile) {
-        font-size: $font-size-small - 1px;
-      }
-    }
-    p {
-      margin-top: 4px;
-      font-size: $font-size-small;
-      @media (max-width: $breakpoint-mobile) {
-        font-size: $font-size-small - 1px;
-      }
-    }
-  }
-  .notEnrolled span {
-    color: #999;
-    font-style: italic;
-  }
+}
+
+.note {
+  color: #777;
+  font-style: italic;
 }

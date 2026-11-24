@@ -225,61 +225,45 @@ exports.createChild = async (req, res, next) => {
 };
 
 // PATCH /children/:id
-// Администратор редактирует всю карточку, родитель — только имя, фамилию
-// и дату рождения своего ребёнка.
+// Карточку ребёнка редактирует только администратор школы.
 exports.updateChild = async (req, res, next) => {
   try {
     const tid = requireTenant(req);
     const { id } = req.params;
-    const user = req.user;
-    const role = req.effectiveRole || user.role;
+    const role = req.effectiveRole || req.user.role;
 
     const child = await Child.findOne({ where: { id, tenantId: tid } });
     if (!child) return res.status(404).json({ message: 'Child not found' });
 
-    if (role !== 'admin' && (role !== 'parent' || child.parentId !== user.id)) {
-      return res.status(403).json({ message: 'Forbidden' });
+    if (role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can edit children' });
     }
 
     const updates = {};
-
-    if (role === 'admin') {
-      const textFields = [
-        'surname',
-        'name',
-        'diagnosis',
-        'allergies',
-        'contraindications',
-        'extraInfo',
-      ];
-      for (const field of textFields) {
-        if (req.body[field] !== undefined) {
-          updates[field] = normalizeText(req.body[field]);
-        }
+    const textFields = [
+      'surname',
+      'name',
+      'diagnosis',
+      'allergies',
+      'contraindications',
+      'extraInfo',
+    ];
+    for (const field of textFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = normalizeText(req.body[field]);
       }
-      if (req.body.birthDate !== undefined) {
-        updates.birthDate = req.body.birthDate;
-      }
-      if (req.body.photoConsent !== undefined) {
-        updates.photoConsent = Boolean(req.body.photoConsent);
-      }
-      if (req.body.photoAngles !== undefined) {
-        updates.photoAngles = normalizeAngles(req.body.photoAngles);
-      }
-      if (updates.photoConsent === false) {
-        updates.photoAngles = [];
-      }
-    } else {
-      // Родитель может исправить только имя, фамилию и дату рождения
-      if (req.body.surname !== undefined) {
-        updates.surname = normalizeText(req.body.surname);
-      }
-      if (req.body.name !== undefined) {
-        updates.name = normalizeText(req.body.name);
-      }
-      if (req.body.birthDate !== undefined) {
-        updates.birthDate = req.body.birthDate;
-      }
+    }
+    if (req.body.birthDate !== undefined) {
+      updates.birthDate = req.body.birthDate;
+    }
+    if (req.body.photoConsent !== undefined) {
+      updates.photoConsent = Boolean(req.body.photoConsent);
+    }
+    if (req.body.photoAngles !== undefined) {
+      updates.photoAngles = normalizeAngles(req.body.photoAngles);
+    }
+    if (updates.photoConsent === false) {
+      updates.photoAngles = [];
     }
 
     await child.update(updates);
@@ -290,21 +274,18 @@ exports.updateChild = async (req, res, next) => {
 };
 
 // DELETE /children/:id
+// Удалять детей может только администратор.
 exports.deleteChild = async (req, res, next) => {
   try {
     const tid = requireTenant(req);
     const { id } = req.params;
-    const user = req.user;
-    const role = req.effectiveRole || user.role;
+    const role = req.effectiveRole || req.user.role;
 
     const child = await Child.findOne({ where: { id, tenantId: tid } });
     if (!child) return res.status(404).json({ message: 'Child not found' });
 
-    if (role === 'parent' && child.parentId !== user.id) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-    if (role !== 'admin' && role !== 'parent') {
-      return res.status(403).json({ message: 'Forbidden' });
+    if (role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can delete children' });
     }
 
     await child.destroy();

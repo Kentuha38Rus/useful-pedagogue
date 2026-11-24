@@ -42,6 +42,16 @@
         padding: 4px 10px;
       }
     }
+    .hint {
+      font-size: $font-size-small;
+      color: #666;
+      text-align: right;
+      max-width: 55%;
+      @media (max-width: $breakpoint-mobile) {
+        font-size: $font-size-small - 2px;
+        max-width: 50%;
+      }
+    }
   }
   .childItem {
     display: flex;

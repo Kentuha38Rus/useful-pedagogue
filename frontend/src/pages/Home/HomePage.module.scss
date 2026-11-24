@@ -6,12 +6,14 @@
 
 .welcome {
   margin-bottom: $spacing-lg;
+
   h2 {
     font-size: $font-size-large;
     @media (max-width: $breakpoint-mobile) {
       font-size: $font-size-large-mobile;
     }
   }
+
   p {
     font-size: $font-size-base;
     @media (max-width: $breakpoint-mobile) {
@@ -22,8 +24,9 @@
 
 .section {
   margin-bottom: $spacing-xl;
+
   h3 {
-    margin-bottom: $spacing-sm;
+    margin-bottom: $spacing-xs;
     font-size: $font-size-large;
     @media (max-width: $breakpoint-mobile) {
       font-size: $font-size-large-mobile;
@@ -31,10 +34,138 @@
   }
 }
 
+.tomorrowDate {
+  margin-bottom: $spacing-sm;
+  font-size: $font-size-small;
+  color: #777;
+  text-transform: capitalize;
+}
+
+.emptyCard {
+  padding: $spacing-md;
+  font-size: $font-size-small;
+  color: #666;
+}
+
+.lessonCard {
+  padding: $spacing-md;
+  margin-bottom: $spacing-sm;
+}
+
+.lessonHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.lessonTime {
+  font-weight: 700;
+  font-size: $font-size-base;
+  color: $primary;
+}
+
+.lessonGroup {
+  font-weight: 600;
+  font-size: $font-size-small;
+}
+
+.lessonInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 4px;
+  font-size: $font-size-small;
+  color: #555;
+}
+
+.lessonTopic {
+  margin-top: 4px;
+  font-size: $font-size-small;
+  color: #333;
+}
+
+.confirmBlock {
+  margin-top: $spacing-md;
+  padding-top: $spacing-sm;
+  border-top: 1px solid $border;
+}
+
+.confirmTitle {
+  font-size: $font-size-small;
+  font-weight: 600;
+  margin-bottom: $spacing-sm;
+}
+
+.childRow {
+  padding: $spacing-sm;
+  margin-bottom: $spacing-sm;
+  background: $background;
+  border-radius: $radius;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.childName {
+  display: block;
+  font-weight: 600;
+  font-size: $font-size-small;
+  margin-bottom: 6px;
+}
+
+.intentButtons {
+  display: flex;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+}
+
+.intentBtn {
+  padding: 6px 12px;
+  border-radius: $radius;
+  border: 1px solid transparent;
+  font-size: $font-size-small;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.intentBtnYes {
+  background: #e8f7ee;
+  border-color: #27ae60;
+  color: #1e7a45;
+}
+
+.intentBtnNo {
+  background: #fdecec;
+  border-color: #e74c3c;
+  color: #a5281b;
+}
+
+.intentMessage {
+  margin-top: 6px;
+  font-size: $font-size-small;
+  color: #1e7a45;
+}
+
+.intentError {
+  margin-top: 6px;
+  font-size: $font-size-small;
+  color: #a5281b;
+}
+
 .quickActions {
   display: flex;
   gap: $spacing-md;
   flex-wrap: wrap;
+
   .actionCard {
     flex: 1;
     min-width: 120px;
@@ -45,11 +176,13 @@
     color: #fff;
     border-radius: $radius;
     cursor: pointer;
+
     @media (max-width: $breakpoint-mobile) {
       font-size: $font-size-large-mobile;
       padding: 16px 8px;
       min-width: 100px;
     }
+
     @media (max-width: $breakpoint-small-mobile) {
       flex: 1 1 100%;
     }

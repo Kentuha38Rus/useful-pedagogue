@@ -202,10 +202,13 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loginLoading = false;
+        // Без этого после входа остаётся глобальный экран «Загрузка...»
+        state.loading = false;
         applyUserToState(state, action.payload);
       })
       .addCase(login.rejected, (state, action) => {
         state.loginLoading = false;
+        state.loading = false;
         state.error = action.payload || 'Ошибка входа';
       })
       .addCase(register.pending, (state) => {
@@ -227,6 +230,7 @@ const authSlice = createSlice({
         state.isPlatformAdmin = false;
         state.effectiveRole = null;
         state.impersonation = null;
+        state.loading = false;
         state.loginLoading = false;
         state.registerLoading = false;
       })

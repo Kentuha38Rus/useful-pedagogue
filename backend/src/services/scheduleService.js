@@ -76,7 +76,14 @@ class ScheduleService {
           ],
         },
         include: [
-          { model: Group, as: 'group', include: ['course'] },
+          {
+            model: Group,
+            as: 'group',
+            include: [
+              'course',
+              { model: User, as: 'teacher', attributes: ['id', 'name'] },
+            ],
+          },
           { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
           { model: Attendance, as: 'attendances', include: ['child'] },
         ],
@@ -100,7 +107,14 @@ class ScheduleService {
       return Lesson.findAll({
         where: { tenantId, groupId: { [Op.in]: groupIds } },
         include: [
-          { model: Group, as: 'group', include: ['course'] },
+          {
+            model: Group,
+            as: 'group',
+            include: [
+              'course',
+              { model: User, as: 'teacher', attributes: ['id', 'name'] },
+            ],
+          },
           { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
           { model: Attendance, as: 'attendances' },
         ],
@@ -125,7 +139,14 @@ class ScheduleService {
     return Lesson.findAll({
       where: { groupId, tenantId },
       include: [
-        { model: Group, as: 'group', include: ['course'] },
+        {
+          model: Group,
+          as: 'group',
+          include: [
+            'course',
+            { model: User, as: 'teacher', attributes: ['id', 'name'] },
+          ],
+        },
         { model: User, as: 'substituteTeacher', attributes: ['id', 'name'] },
         { model: Attendance, as: 'attendances', include: ['child'] },
       ],
