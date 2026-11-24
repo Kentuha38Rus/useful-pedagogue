@@ -42,6 +42,22 @@ const getServerLocalDateString = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const toDateString = (date) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// Понедельник — воскресенье текущей недели
+const getCurrentWeekRange = (now = new Date()) => {
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  monday.setDate(monday.getDate() - ((now.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: toDateString(monday), end: toDateString(sunday) };
+};
+
 const toNumberOrNull = (v) => {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
@@ -122,6 +138,9 @@ class AdminController {
         Child.findAll({
           where: { tenantId: tid },
           attributes: ['id', 'name', 'surname', 'birthDate'],
+          include: [
+            { model: User, as: 'parent', attributes: ['id', 'name', 'email', 'phone'] },
+          ],
           order: [['name', 'ASC']],
         }),
         Group.findAll({
@@ -155,6 +174,15 @@ class AdminController {
               include: [
                 { model: User, as: 'teacher', attributes: ['id', 'name'] },
                 { model: Course, as: 'course', attributes: ['id', 'name'] },
+                {
+                  model: Child,
+                  as: 'children',
+                  through: { attributes: [] },
+                  attributes: ['id', 'name', 'surname'],
+                  include: [
+                    { model: User, as: 'parent', attributes: ['id', 'name'] },
+                  ],
+                },
               ],
             },
           ],
@@ -163,6 +191,9 @@ class AdminController {
         Child.findAll({
           where: unassignedWhere,
           attributes: ['id', 'name', 'surname', 'birthDate'],
+          include: [
+            { model: User, as: 'parent', attributes: ['id', 'name', 'email', 'phone'] },
+          ],
           order: [['name', 'ASC']],
         }),
       ]);
@@ -186,15 +217,28 @@ class AdminController {
       const todayLessonsMapped = todayLessonsRaw.map((l) => {
         const attCount = attMap.get(l.id) || 0;
         const status = computeLessonStatus(l, attCount, now);
+        const group = l.group;
+        const teacher =
+          group && group.teacher
+            ? { id: group.teacher.id, name: group.teacher.name }
+            : null;
+        const children = ((group && group.children) || []).map((child) => ({
+          id: child.id,
+          name: [child.surname, child.name].filter(Boolean).join(' ') || 'Без имени',
+          parentName: child.parent ? child.parent.name : null,
+        }));
+
         return {
           id: l.id,
           startTime: l.startTime,
           endTime: l.endTime,
           topic: l.topic,
-          groupName: l.group ? l.group.name : null,
-          teacherName: l.group && l.group.teacher ? l.group.teacher.name : null,
-          courseName: l.group && l.group.course ? l.group.course.name : null,
+          groupId: group ? group.id : null,
+          groupName: group ? group.name : null,
+          teacherName: teacher ? teacher.name : null,
+          courseName: group && group.course ? group.course.name : null,
           status,
+          participants: { teacher, children },
         };
       });
 
@@ -834,6 +878,121 @@ class AdminController {
         order: [['createdAt', 'DESC']],
       });
       res.status(200).json(groups);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Карточка группы: состав, преподаватель и занятия текущей недели
+  static async getGroupDetails(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const { id } = req.params;
+
+      const group = await Group.findOne({
+        where: { id, tenantId: tid },
+        include: [
+          { model: User, as: 'teacher', attributes: ['id', 'name', 'email', 'phone'] },
+          { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
+          {
+            model: Child,
+            as: 'children',
+            through: { attributes: [] },
+            attributes: ['id', 'name', 'surname', 'birthDate'],
+            include: [
+              {
+                model: User,
+                as: 'parent',
+                attributes: ['id', 'name', 'email', 'phone'],
+              },
+            ],
+          },
+        ],
+      });
+      if (!group) return res.status(404).json({ message: 'Group not found' });
+
+      // Клиент передаёт свою локальную дату, чтобы неделя считалась по его часовому поясу
+      const { date } = req.query;
+      const baseDate = isValidDateString(date)
+        ? new Date(`${date}T00:00:00`)
+        : new Date();
+      const { start, end } = getCurrentWeekRange(baseDate);
+      const lessons = await Lesson.findAll({
+        where: {
+          tenantId: tid,
+          groupId: id,
+          date: { [Op.between]: [start, end] },
+        },
+        attributes: ['id', 'date', 'startTime', 'endTime', 'topic', 'is_cancelled'],
+        order: [['date', 'ASC'], ['startTime', 'ASC']],
+      });
+
+      const lessonIds = lessons.map((lesson) => lesson.id);
+      let attendanceMap = new Map();
+      if (lessonIds.length > 0) {
+        const rows = await Attendance.findAll({
+          where: { tenantId: tid, lessonId: { [Op.in]: lessonIds } },
+          attributes: [
+            'lessonId',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'cnt'],
+          ],
+          group: ['lessonId'],
+          raw: true,
+        });
+        attendanceMap = new Map(rows.map((row) => [row.lessonId, Number(row.cnt)]));
+      }
+
+      const now = new Date();
+      const weekLessons = lessons.map((lesson) => {
+        const attendanceCount = attendanceMap.get(lesson.id) || 0;
+        return {
+          id: lesson.id,
+          date: lesson.date,
+          startTime: lesson.startTime,
+          endTime: lesson.endTime,
+          topic: lesson.topic,
+          attendanceCount,
+          status: computeLessonStatus(lesson, attendanceCount, now),
+        };
+      });
+
+      res.status(200).json({
+        id: group.id,
+        name: group.name,
+        maxStudents: group.maxStudents,
+        course: group.course
+          ? {
+              id: group.course.id,
+              name: group.course.name,
+              price: group.course.price,
+            }
+          : null,
+        teacher: group.teacher
+          ? {
+              id: group.teacher.id,
+              name: group.teacher.name,
+              email: group.teacher.email,
+              phone: group.teacher.phone,
+            }
+          : null,
+        children: (group.children || []).map((child) => ({
+          id: child.id,
+          name: child.name,
+          surname: child.surname,
+          birthDate: child.birthDate,
+          parent: child.parent
+            ? {
+                id: child.parent.id,
+                name: child.parent.name,
+                email: child.parent.email,
+                phone: child.parent.phone,
+              }
+            : null,
+        })),
+        weekStart: start,
+        weekEnd: end,
+        lessons: weekLessons,
+      });
     } catch (error) {
       next(error);
     }

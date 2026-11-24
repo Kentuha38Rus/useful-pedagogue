@@ -38,11 +38,19 @@ export const ageLabel = (age) => {
   return `${age} ${word}`;
 };
 
-export const InfoRow = ({ label, value }) => (
-  <div style={{ display: 'flex', gap: 8, fontSize: 13, padding: '2px 0' }}>
-    <span style={{ opacity: 0.8, minWidth: 150, flexShrink: 0 }}>{label}</span>
-    <span style={{ fontWeight: 500, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-      {value === null || value === undefined || value === '' ? '—' : value}
-    </span>
-  </div>
-);
+// Поле карточки: подпись сверху, значение снизу — ровно и читаемо на телефоне
+export const Field = ({ label, value, wide = false }) => {
+  const isEmpty = value === null || value === undefined || value === '';
+  return (
+    <div className={`dash-field${wide ? ' dash-field--wide' : ''}`}>
+      <div className="dash-field-label">{label}</div>
+      <div
+        className={`dash-field-value${
+          isEmpty ? ' dash-field-value--empty' : ''
+        }`}
+      >
+        {isEmpty ? '—' : value}
+      </div>
+    </div>
+  );
+};

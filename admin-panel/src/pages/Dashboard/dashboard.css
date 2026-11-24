@@ -1,0 +1,337 @@
+/* =========================================================
+   Карточки деталей в дашборде администратора
+   ========================================================= */
+
+.dash-detail {
+  color: #fff;
+}
+
+.dash-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.dash-detail-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.dash-detail-role {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.85;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+.dash-detail-sub {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+.dash-section {
+  margin-top: 16px;
+}
+
+.dash-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.dash-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+/* Белая карточка с информацией */
+.dash-info-card {
+  background: #fff;
+  color: #1e293b;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.16);
+}
+
+.dash-info-card:last-child {
+  margin-bottom: 0;
+}
+
+.dash-info-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dash-info-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.dash-info-note {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+/* Сетка полей: на широком экране в две колонки, на узком — в одну */
+.dash-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 18px;
+}
+
+.dash-field {
+  min-width: 0;
+}
+
+.dash-field--wide {
+  grid-column: 1 / -1;
+}
+
+.dash-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.dash-field-value {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #1e293b;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.dash-field-value--empty {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Списки внутри карточек */
+.dash-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.dash-list li {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #1e293b;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.dash-list li:last-child {
+  margin-bottom: 0;
+}
+
+.dash-list-note {
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Занятия недели */
+.dash-week-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13.5px;
+  color: #1e293b;
+}
+
+.dash-week-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dash-week-date {
+  font-weight: 600;
+  min-width: 96px;
+}
+
+.dash-week-time {
+  min-width: 100px;
+  color: #334155;
+}
+
+.dash-week-topic {
+  flex: 1;
+  min-width: 120px;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
+/* Статусы занятий */
+.dash-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dash-status--done {
+  background: #dcfce7;
+  color: #14532d;
+}
+
+.dash-status--planned {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.dash-status--no_mark {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+
+.dash-status--cancelled {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+/* Участники сегодняшнего занятия */
+.dash-participants {
+  margin: 8px 0 4px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+}
+
+.dash-participant {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 13px;
+  color: #fff;
+}
+
+.dash-participant:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dash-participant-name {
+  font-weight: 600;
+}
+
+.dash-participant-role {
+  font-size: 11px;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dash-participant-parent {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.dash-participant-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.dash-participant-btn:hover:not(:disabled) {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.dash-participant-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dash-participant-msg {
+  flex-basis: 100%;
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+.dash-participant-msg--error {
+  color: #ffe4e6;
+}
+
+.dash-lesson-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.dash-lesson-chevron {
+  font-size: 16px;
+  opacity: 0.8;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dash-lesson-chevron--open {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 640px) {
+  .dash-fields {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .dash-detail-title {
+    font-size: 16px;
+  }
+
+  .dash-week-date {
+    min-width: 0;
+  }
+
+  .dash-week-time {
+    min-width: 0;
+  }
+
+  .dash-participant-btn {
+    margin-left: 0;
+  }
+}

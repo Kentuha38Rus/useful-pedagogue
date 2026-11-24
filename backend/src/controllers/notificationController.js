@@ -21,6 +21,7 @@ const RESPONSE_TOKEN_TTL = '30m';
 const LESSON_NOTIFY_COOLDOWN_MS = 60 * 1000;
 
 const lessonNotifyCooldown = new Map(); // `${tenantId}:${lessonId}` -> timestamp
+const lessonPersonNotifyCooldown = new Map(); // `${tenantId}:${lessonId}:${target}` -> timestamp
 
 function signResponseToken(responseId) {
   return jwt.sign(
@@ -127,12 +128,15 @@ async function applyLessonResponse(responseId, status, io) {
   return response;
 }
 
-async function processLessonRemindersForLessons(lessons, adminId, io, tenantId) {
+async function processLessonRemindersForLessons(lessons, adminId, io, tenantId, target = {}) {
   const remindersByParent = new Map();
   const teacherItems = [];
   let sentPushCount = 0;
   let totalCount = 0;
   let teacherPushCount = 0;
+
+  const onlyChildId = target.childId ? String(target.childId) : null;
+  const onlyTeacherId = target.teacherId ? String(target.teacherId) : null;
 
   for (const lesson of lessons) {
     if (!lesson.group) continue;
@@ -141,7 +145,13 @@ async function processLessonRemindersForLessons(lessons, adminId, io, tenantId) 
     const timeRange = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
 
     const teacher = lesson.group.teacher;
-    if (teacher && String(teacher.id) !== String(adminId)) {
+    const notifyTeacher =
+      teacher &&
+      String(teacher.id) !== String(adminId) &&
+      !onlyChildId &&
+      (!onlyTeacherId || String(teacher.id) === onlyTeacherId);
+
+    if (notifyTeacher) {
       const teacherSubs = await PushSubscription.findAll({
         where: { user_id: teacher.id, tenant_id: tenantId },
       });
@@ -174,6 +184,9 @@ async function processLessonRemindersForLessons(lessons, adminId, io, tenantId) 
     if (!lesson.group.children) continue;
 
     for (const child of lesson.group.children) {
+      if (onlyTeacherId) continue;
+      if (onlyChildId && String(child.id) !== onlyChildId) continue;
+
       const parent = child.parent;
       if (!parent) continue;
 
@@ -490,6 +503,116 @@ exports.sendLessonRemindersForLesson = async (req, res, next) => {
         `Отправлено ${sentPushCount} push родителям, ` +
         `${teacherPushCount} push учителю; ` +
         `сообщений в чат: родителям — ${chatCreated}, учителю — ${chatCreatedTeachers}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Уведомить одного участника занятия: ребёнка (его родителя) или преподавателя
+exports.sendLessonReminderForPerson = async (req, res, next) => {
+  try {
+    const tid = requireTenant(req);
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const adminId = req.user.id;
+    const io = req.app.get('io');
+    const { lessonId } = req.params;
+    const { childId, teacherId } = req.body || {};
+
+    if (!lessonId) {
+      return res.status(400).json({ error: 'lessonId is required' });
+    }
+    if (!childId && !teacherId) {
+      return res.status(400).json({ error: 'childId or teacherId is required' });
+    }
+    if (childId && teacherId) {
+      return res.status(400).json({ error: 'Pass only one of childId or teacherId' });
+    }
+
+    const cooldownKey = `${tid}:${lessonId}:${childId ? `child:${childId}` : `teacher:${teacherId}`}`;
+    const now = Date.now();
+    const lastAt = lessonPersonNotifyCooldown.get(cooldownKey) || 0;
+    if (lastAt && now - lastAt < LESSON_NOTIFY_COOLDOWN_MS) {
+      const retryAfterSec = Math.ceil(
+        (LESSON_NOTIFY_COOLDOWN_MS - (now - lastAt)) / 1000
+      );
+      return res.status(429).json({
+        error: `Повторная отправка возможна через ${retryAfterSec} сек.`,
+        retryAfterSec,
+      });
+    }
+
+    const lesson = await Lesson.findOne({
+      where: { id: lessonId, tenantId: tid },
+      include: [
+        {
+          model: Group,
+          as: 'group',
+          include: [
+            { model: User, as: 'teacher', attributes: ['id', 'name', 'email', 'role'] },
+            {
+              model: Child,
+              as: 'children',
+              through: { attributes: [] },
+              include: [
+                { model: User, as: 'parent', attributes: ['id', 'name', 'email', 'role'] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!lesson) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+
+    const group = lesson.group;
+    if (childId) {
+      const inGroup = (group?.children || []).some(
+        (child) => String(child.id) === String(childId)
+      );
+      if (!inGroup) {
+        return res.status(404).json({ error: 'Child is not in this lesson group' });
+      }
+    }
+    if (teacherId) {
+      if (!group?.teacher || String(group.teacher.id) !== String(teacherId)) {
+        return res.status(400).json({ error: 'Teacher is not assigned to this group' });
+      }
+    }
+
+    const result = await processLessonRemindersForLessons(
+      [lesson],
+      adminId,
+      io,
+      tid,
+      { childId, teacherId }
+    );
+
+    lessonPersonNotifyCooldown.set(cooldownKey, now);
+
+    let message;
+    if (childId && result.totalCount === 0) {
+      message = 'У ребёнка не указан родитель — отправлять некому.';
+    } else if (childId) {
+      message =
+        `Родителю: push — ${result.sentPushCount}, ` +
+        `сообщение в чат — ${result.chatCreated}.`;
+    } else {
+      message =
+        `Преподавателю: push — ${result.teacherPushCount}, ` +
+        `сообщение в чат — ${result.chatCreatedTeachers}.`;
+    }
+
+    res.json({
+      success: true,
+      lessonId,
+      ...result,
+      message,
     });
   } catch (error) {
     next(error);

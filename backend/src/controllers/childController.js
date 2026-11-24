@@ -1,4 +1,4 @@
-const { Child, Group, Lesson, User } = require('../models');
+const { Child, Group, Lesson, User, Course } = require('../models');
 const { Op } = require('sequelize');
 const { requireTenant } = require('../utils/helpers');
 
@@ -122,13 +122,14 @@ exports.getChildById = async (req, res, next) => {
           as: 'groups',
           through: { attributes: [] },
           include: [
+            { model: Course, as: 'course', attributes: ['id', 'name'] },
             { model: User, as: 'teacher', attributes: ['id', 'name', 'email'] },
           ],
         },
         {
           model: User,
           as: 'parent',
-          attributes: ['id', 'name', 'email'],
+          attributes: ['id', 'name', 'email', 'phone', 'username'],
         },
       ],
     });

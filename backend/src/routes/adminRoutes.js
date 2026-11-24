@@ -24,6 +24,7 @@ router.delete('/users/:id', AdminController.deleteUser);
 
 // Группы
 router.get('/groups', AdminController.getAllGroups);
+router.get('/groups/:id', AdminController.getGroupDetails);
 router.post('/groups', AdminController.createGroup);
 router.patch('/groups/:id', AdminController.updateGroup);
 router.delete('/groups/:id', AdminController.deleteGroup);

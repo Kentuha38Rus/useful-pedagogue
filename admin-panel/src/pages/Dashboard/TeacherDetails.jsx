@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import Button from '../../components/common/Button';
 import MonthCalendar from '../../components/common/MonthCalendar';
-import { fullName, InfoRow } from './PersonInfo';
+import { Field, fullName } from './PersonInfo';
 
 const TeacherDetails = ({ user, loading, error, onBack }) => {
   const lessons = useMemo(() => {
@@ -24,61 +24,88 @@ const TeacherDetails = ({ user, loading, error, onBack }) => {
   }, [user]);
 
   if (loading) {
-    return <div style={{ fontSize: 13, opacity: 0.92 }}>Загрузка данных учителя...</div>;
+    return <div className="dash-detail-sub">Загрузка данных учителя...</div>;
   }
 
   if (error) {
     return (
-      <div>
-        <div style={{ fontSize: 13, marginBottom: 8 }}>⚠️ {error}</div>
+      <div className="dash-detail">
+        <div className="dash-detail-sub" style={{ marginBottom: 10 }}>
+          ⚠️ {error}
+        </div>
         <Button variant="default" onClick={onBack}>← Назад</Button>
       </div>
     );
   }
 
   if (!user) {
-    return <div style={{ fontSize: 13, opacity: 0.92 }}>Нет данных</div>;
+    return <div className="dash-detail-sub">Нет данных</div>;
   }
 
   const groups = user.groups || [];
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>
-          {fullName(user)}
-          <span style={{ fontWeight: 400, fontSize: 12, marginLeft: 8, opacity: 0.85 }}>
-            учитель
-          </span>
+    <div className="dash-detail">
+      <div className="dash-detail-head">
+        <div>
+          <div className="dash-detail-title">
+            {fullName(user)}
+            <span className="dash-detail-role">учитель</span>
+          </div>
         </div>
-        <Button variant="default" onClick={onBack} style={{ padding: '4px 10px', fontSize: 12 }}>
+        <Button
+          variant="default"
+          onClick={onBack}
+          style={{ padding: '5px 10px', fontSize: 12, flexShrink: 0 }}
+        >
           ← Назад к списку
         </Button>
       </div>
 
-      <div style={{ marginTop: 8, marginBottom: 12 }}>
-        <InfoRow label="Email" value={user.email} />
-        <InfoRow label="Телефон" value={user.phone} />
-        <InfoRow label="Логин" value={user.username ? `@${user.username}` : null} />
-        <InfoRow
-          label="Группы"
-          value={
-            groups.length === 0
-              ? 'Групп нет'
-              : groups
-                  .map((group) => {
-                    const course = group.course ? ` (${group.course.name})` : '';
-                    return `${group.name}${course}`;
-                  })
-                  .join(', ')
-          }
-        />
+      <div className="dash-info-card">
+        <div className="dash-fields">
+          <Field label="Email" value={user.email} />
+          <Field label="Телефон" value={user.phone} />
+          <Field
+            label="Логин"
+            value={user.username ? `@${user.username}` : null}
+          />
+          <Field
+            label="Групп"
+            value={groups.length === 0 ? 'Нет групп' : groups.length}
+          />
+        </div>
       </div>
 
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
-        Расписание на месяц
+      <div className="dash-section">
+        <div className="dash-section-title" style={{ marginBottom: 8 }}>
+          Группы
+        </div>
+        <div className="dash-info-card">
+          {groups.length === 0 ? (
+            <div className="dash-list-note">Групп нет</div>
+          ) : (
+            <ul className="dash-list">
+              {groups.map((group) => (
+                <li key={group.id}>
+                  <strong>{group.name}</strong>
+                  {group.course ? ` — ${group.course.name}` : ''}
+                  {group.children && group.children.length > 0
+                    ? ` · детей: ${group.children.length}`
+                    : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-      <MonthCalendar lessons={lessons} loading={false} />
+
+      <div className="dash-section">
+        <div className="dash-section-title" style={{ marginBottom: 8 }}>
+          Расписание на месяц
+        </div>
+        <MonthCalendar lessons={lessons} />
+      </div>
     </div>
   );
 };

@@ -30,6 +30,13 @@ router.post(
   notificationController.sendLessonRemindersForLesson
 );
 
+// Уведомить одного участника занятия (ребёнка/родителя или преподавателя)
+router.post(
+  '/lesson-reminders/lesson/:lessonId/target',
+  roleCheck(['admin']),
+  notificationController.sendLessonReminderForPerson
+);
+
 router.get(
   '/lesson-responses',
   roleCheck(['admin']),

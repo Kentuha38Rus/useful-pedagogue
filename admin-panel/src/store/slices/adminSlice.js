@@ -82,6 +82,40 @@ export const updateChild = createAsyncThunk(
   }
 );
 
+// Карточка ребёнка для дашборда
+export const fetchChildDetails = createAsyncThunk(
+  'admin/fetchChildDetails',
+  async (childId, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/children/${childId}`);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Не удалось загрузить данные ребёнка'
+      );
+    }
+  }
+);
+
+// Карточка группы: состав, преподаватель, занятия текущей недели
+export const fetchGroupDetails = createAsyncThunk(
+  'admin/fetchGroupDetails',
+  async (arg, { rejectWithValue }) => {
+    try {
+      const groupId = typeof arg === 'string' ? arg : arg.groupId;
+      const date = typeof arg === 'string' ? undefined : arg.date;
+      const response = await api.get(`/admin/groups/${groupId}`, {
+        params: date ? { date } : {},
+      });
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || 'Не удалось загрузить данные группы'
+      );
+    }
+  }
+);
+
 export const fetchTeachers = createAsyncThunk('admin/fetchTeachers', async () => {
   const response = await api.get('/admin/users', { params: { role: 'teacher', limit: 100 } });
   return response.data.users;
@@ -181,6 +215,8 @@ const initialState = {
   salary: { period: {}, share: 0.4, teachers: [], totals: { revenue: 0, salary: 0 } },
   users: { total: 0, page: 1, totalPages: 1, users: [] },
   userDetails: { user: null, loading: false, error: null },
+  childDetails: { child: null, loading: false, error: null },
+  groupDetails: { group: null, loading: false, error: null },
   teachers: [],
   groups: [],
   courses: [],
@@ -254,6 +290,30 @@ const adminSlice = createSlice({
       .addCase(fetchUserDetails.rejected, (state, action) => {
         state.userDetails.loading = false;
         state.userDetails.error = action.payload || 'Ошибка загрузки';
+      })
+      .addCase(fetchChildDetails.pending, (state) => {
+        state.childDetails.loading = true;
+        state.childDetails.error = null;
+      })
+      .addCase(fetchChildDetails.fulfilled, (state, action) => {
+        state.childDetails.loading = false;
+        state.childDetails.child = action.payload;
+      })
+      .addCase(fetchChildDetails.rejected, (state, action) => {
+        state.childDetails.loading = false;
+        state.childDetails.error = action.payload || 'Ошибка загрузки';
+      })
+      .addCase(fetchGroupDetails.pending, (state) => {
+        state.groupDetails.loading = true;
+        state.groupDetails.error = null;
+      })
+      .addCase(fetchGroupDetails.fulfilled, (state, action) => {
+        state.groupDetails.loading = false;
+        state.groupDetails.group = action.payload;
+      })
+      .addCase(fetchGroupDetails.rejected, (state, action) => {
+        state.groupDetails.loading = false;
+        state.groupDetails.error = action.payload || 'Ошибка загрузки';
       })
       .addCase(fetchTeachers.fulfilled, (state, action) => {
         state.teachers = action.payload;

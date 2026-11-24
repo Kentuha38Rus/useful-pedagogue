@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import './MonthCalendar.css';
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -16,6 +17,17 @@ const formatDateRu = (key) => {
     month: 'long',
     weekday: 'short',
   });
+};
+
+const pluralLessons = (count) => {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  let word = 'занятий';
+  if (lastTwo < 11 || lastTwo > 14) {
+    if (last === 1) word = 'занятие';
+    else if (last >= 2 && last <= 4) word = 'занятия';
+  }
+  return `${count} ${word}`;
 };
 
 /**
@@ -72,22 +84,25 @@ const MonthCalendar = ({ lessons = [], loading = false }) => {
   };
 
   return (
-    <div style={styles.wrapper}>
-      <div style={styles.header}>
+    <div className="mc">
+      <div className="mc-head">
         <button
           type="button"
-          style={styles.navBtn}
+          className="mc-nav"
           onClick={() => changeMonth(-1)}
           aria-label="Предыдущий месяц"
         >
           ‹
         </button>
-        <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>
-          {monthDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })}
+        <span className="mc-month">
+          {monthDate.toLocaleDateString('ru-RU', {
+            month: 'long',
+            year: 'numeric',
+          })}
         </span>
         <button
           type="button"
-          style={styles.navBtn}
+          className="mc-nav"
           onClick={() => changeMonth(1)}
           aria-label="Следующий месяц"
         >
@@ -95,16 +110,16 @@ const MonthCalendar = ({ lessons = [], loading = false }) => {
         </button>
       </div>
 
-      <div style={styles.grid}>
+      <div className="mc-grid">
         {WEEKDAYS.map((day) => (
-          <div key={day} style={styles.weekday}>
+          <div key={day} className="mc-weekday">
             {day}
           </div>
         ))}
 
         {cells.map((day, index) => {
           if (day === null) {
-            return <div key={`empty-${index}`} style={styles.emptyCell} />;
+            return <div key={`empty-${index}`} className="mc-day" aria-hidden="true" />;
           }
           const key = toKey(year, month, day);
           const dayLessons = lessonsByDate[key] || [];
@@ -112,167 +127,72 @@ const MonthCalendar = ({ lessons = [], loading = false }) => {
           const isToday = key === todayKey;
           const isSelected = key === selectedDate;
 
+          const classes = [
+            'mc-day',
+            hasLessons ? 'mc-day--marked' : '',
+            isToday ? 'mc-day--today' : '',
+            isSelected ? 'mc-day--selected' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+
           return (
             <button
               key={key}
               type="button"
+              className={classes}
               disabled={!hasLessons}
               onClick={() => setSelectedDate(isSelected ? null : key)}
-              title={hasLessons ? `Занятий: ${dayLessons.length}` : 'Занятий нет'}
-              style={{
-                ...styles.day,
-                ...(hasLessons ? styles.dayMarked : null),
-                ...(isToday ? styles.dayToday : null),
-                ...(isSelected ? styles.daySelected : null),
-                cursor: hasLessons ? 'pointer' : 'default',
-              }}
+              title={hasLessons ? pluralLessons(dayLessons.length) : 'Занятий нет'}
             >
               <span>{day}</span>
-              {hasLessons && <span style={styles.dot} />}
+              {hasLessons && <span className="mc-dot" />}
             </button>
           );
         })}
       </div>
 
-      <div style={styles.summary}>
+      <div className="mc-summary">
         {loading
           ? 'Загрузка расписания...'
           : monthLessons > 0
-          ? `Занятий в этом месяце: ${monthLessons}. Нажмите на день, чтобы увидеть подробности.`
+          ? `В этом месяце: ${pluralLessons(monthLessons)}. Нажмите на отмеченный день, чтобы увидеть подробности.`
           : 'В этом месяце занятий нет'}
       </div>
 
       {selectedDate && (
-        <div style={styles.dayDetails}>
-          <div style={styles.dayTitle}>{formatDateRu(selectedDate)}</div>
+        <div className="mc-details">
+          <div className="mc-details-head">
+            <span className="mc-details-date">{formatDateRu(selectedDate)}</span>
+            <span className="mc-details-count">
+              {pluralLessons(selectedLessons.length)}
+            </span>
+          </div>
+
           {selectedLessons.length === 0 ? (
-            <div style={{ fontSize: 13, color: '#64748b' }}>Занятий нет</div>
+            <div className="mc-empty">Занятий нет</div>
           ) : (
-            <ul style={styles.lessonList}>
-              {selectedLessons.map((lesson) => (
-                <li key={lesson.id} style={styles.lessonItem}>
-                  <span style={styles.lessonTime}>
-                    {formatTime(lesson.startTime)}–{formatTime(lesson.endTime)}
-                  </span>
-                  <span>
+            selectedLessons.map((lesson) => (
+              <div key={lesson.id} className="mc-lesson">
+                <span className="mc-time">
+                  {formatTime(lesson.startTime)}–{formatTime(lesson.endTime)}
+                </span>
+                <div className="mc-lesson-body">
+                  <div className="mc-lesson-group">
                     {lesson.groupName || 'Группа'}
                     {lesson.courseName ? ` · ${lesson.courseName}` : ''}
-                    {lesson.topic ? ` · ${lesson.topic}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  </div>
+                  {lesson.topic && (
+                    <div className="mc-lesson-topic">{lesson.topic}</div>
+                  )}
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}
     </div>
   );
-};
-
-const styles = {
-  wrapper: {
-    background: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: 10,
-    padding: 12,
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  navBtn: {
-    border: '1px solid #cbd5e1',
-    background: '#f8fafc',
-    borderRadius: 6,
-    width: 32,
-    height: 32,
-    fontSize: 18,
-    lineHeight: 1,
-    cursor: 'pointer',
-    color: '#1e293b',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(7, 1fr)',
-    gap: 4,
-  },
-  weekday: {
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#64748b',
-    padding: '4px 0',
-  },
-  emptyCell: {
-    minHeight: 38,
-  },
-  day: {
-    position: 'relative',
-    minHeight: 38,
-    border: '1px solid transparent',
-    background: '#f8fafc',
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    font: 'inherit',
-    fontSize: 13,
-    color: '#334155',
-    padding: 0,
-  },
-  dayMarked: {
-    background: '#dbeafe',
-    borderColor: '#93c5fd',
-    fontWeight: 700,
-    color: '#1e3a8a',
-  },
-  dayToday: {
-    borderColor: '#2563eb',
-  },
-  daySelected: {
-    background: '#2563eb',
-    borderColor: '#1d4ed8',
-    color: '#fff',
-  },
-  dot: {
-    position: 'absolute',
-    bottom: 4,
-    width: 5,
-    height: 5,
-    borderRadius: '50%',
-    background: 'currentColor',
-  },
-  summary: {
-    marginTop: 10,
-    fontSize: 12,
-    color: '#64748b',
-  },
-  dayDetails: {
-    marginTop: 10,
-    padding: 10,
-    background: '#f8fafc',
-    borderRadius: 8,
-  },
-  dayTitle: {
-    fontSize: 13,
-    fontWeight: 600,
-    marginBottom: 6,
-    textTransform: 'capitalize',
-  },
-  lessonList: {
-    margin: 0,
-    paddingLeft: 18,
-  },
-  lessonItem: {
-    fontSize: 13,
-    padding: '3px 0',
-  },
-  lessonTime: {
-    fontWeight: 600,
-    marginRight: 6,
-  },
 };
 
 export default MonthCalendar;
