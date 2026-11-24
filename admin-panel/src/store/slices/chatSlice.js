@@ -117,7 +117,9 @@ const chatSlice = createSlice({
           chat_id: chatId,
           other_user: message.sender || null,
           last_message: message,
-          unread_count: 0,
+          // Новый входящий диалог тоже должен попасть в счётчик непрочитанных
+          unread_count:
+            !isOwn && state.activeChatId !== chatId ? 1 : 0,
         };
         state.dialogs.unshift(dialog);
       } else {

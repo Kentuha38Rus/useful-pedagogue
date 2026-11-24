@@ -1,3 +1,5 @@
+import api from './api';
+
 // ----------------------------------------------------------------
 // Разрешение на показ уведомлений
 // ----------------------------------------------------------------
@@ -90,32 +92,12 @@ export const subscribePush = async () => {
       );
     }
 
-    // 5. Отправка на бэкенд
-    const apiUrl =
-      import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    const token = localStorage.getItem('token');
-
-    if (!token) {
-      console.warn('[push] no auth token — cannot save subscription');
-      return { ok: false, reason: 'no-token' };
-    }
-
-    const resp = await fetch(`${apiUrl}/notifications/subscribe`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ subscription }),
+    // 5. Отправка на бэкенд.
+    // Используем общий api-клиент: он сам обновит access-токен при 401.
+    const { data: saved } = await api.post('/notifications/subscribe', {
+      subscription,
     });
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      console.error('[push] subscribe failed:', resp.status, text);
-      return { ok: false, reason: `http-${resp.status}` };
-    }
-
-    const saved = await resp.json();
     console.log('[push] subscription saved on server:', {
       id: saved?.id,
       user_id: saved?.user_id,
@@ -123,7 +105,12 @@ export const subscribePush = async () => {
     return { ok: true, saved };
   } catch (err) {
     console.error('[push] subscribe error:', err);
-    return { ok: false, reason: err?.message || 'unknown' };
+    return {
+      ok: false,
+      reason: err?.response?.status
+        ? `http-${err.response.status}`
+        : err?.message || 'unknown',
+    };
   }
 };
 
@@ -151,28 +138,19 @@ export const unsubscribePush = async () => {
 
 // Удалить подписку на сервере (чтобы уведомления точно перестали приходить)
 export const deletePushSubscriptionOnServer = async (endpoint) => {
-  const apiUrl =
-    import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  const token = localStorage.getItem('token');
-  if (!token) return { ok: false, reason: 'no-token' };
-
   try {
-    const resp = await fetch(`${apiUrl}/notifications/subscribe`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(endpoint ? { endpoint } : {}),
+    const response = await api.delete('/notifications/subscribe', {
+      data: endpoint ? { endpoint } : {},
     });
-    if (!resp.ok) {
-      console.warn('[push] delete subscription failed:', resp.status);
-      return { ok: false, reason: `http-${resp.status}` };
-    }
-    return { ok: true, data: await resp.json() };
+    return { ok: true, data: response.data };
   } catch (err) {
     console.warn('[push] delete subscription error:', err);
-    return { ok: false, reason: err?.message };
+    return {
+      ok: false,
+      reason: err?.response?.status
+        ? `http-${err.response.status}`
+        : err?.message,
+    };
   }
 };
 
@@ -196,23 +174,9 @@ export const onPushMessage = (callback) => {
 // Ответ на напоминание из UI (с авторизацией)
 // ----------------------------------------------------------------
 export const respondToLessonReminder = async (responseId, status) => {
-  const apiUrl =
-    import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  const token = localStorage.getItem('token');
-  const resp = await fetch(
-    `${apiUrl}/notifications/lesson-responses/${responseId}/respond`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ status }),
-    }
+  const response = await api.post(
+    `/notifications/lesson-responses/${responseId}/respond`,
+    { status }
   );
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`respond failed: ${resp.status} ${text}`);
-  }
-  return resp.json();
+  return response.data;
 };
