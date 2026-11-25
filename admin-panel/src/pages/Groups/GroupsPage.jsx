@@ -166,6 +166,7 @@ const GroupsPage = () => {
   const [showAddChildModal, setShowAddChildModal] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [formError, setFormError] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState({});
 
   const [formData, setFormData] = useState({
     name: '',
@@ -306,6 +307,13 @@ const GroupsPage = () => {
               'Не удалось удалить ребёнка из группы'
       );
     }
+  };
+
+  const toggleGroup = (groupId) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
   };
 
   const setDaySlot = (day, value) => {
@@ -504,97 +512,146 @@ const GroupsPage = () => {
         <div>Загрузка...</div>
       ) : (
         <div style={{ display: 'grid', gap: '15px' }}>
-          {groups.map((group) => (
-            <Card key={group.id} style={{ padding: '15px' }}>
-              <h3>{group.name}</h3>
-              <p>Курс: {group.course?.name || '—'}</p>
-              <p>Преподаватель: {group.teacher?.name || '—'}</p>
-              <p>
-                Детей: {group.children?.length || 0} / {group.maxStudents}
-              </p>
+          {groups.map((group) => {
+            const isExpanded = Boolean(expandedGroups[group.id]);
+            return (
+              <Card key={group.id} style={{ padding: 0, overflow: 'hidden' }}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  aria-expanded={isExpanded}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    padding: '12px 15px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    font: 'inherit',
+                    color: 'inherit',
+                  }}
+                >
+                  <span>
+                    <span
+                      style={{ display: 'block', fontWeight: 600, fontSize: 15 }}
+                    >
+                      {group.name}
+                    </span>
+                    <span
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        color: '#64748b',
+                        marginTop: 2,
+                      }}
+                    >
+                      Курс: {group.course?.name || '—'} · Преподаватель:{' '}
+                      {group.teacher?.name || '—'} · Детей:{' '}
+                      {group.children?.length || 0} / {group.maxStudents}
+                    </span>
+                  </span>
+                  <span style={{ fontSize: 14, color: '#64748b', flexShrink: 0 }}>
+                    {isExpanded ? '▾' : '▸'}
+                  </span>
+                </button>
 
-              <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                  Дети в группе:
-                </div>
-                {group.children?.length ? (
-                  <ul
-                    style={{
-                      margin: 0,
-                      padding: 0,
-                      listStyle: 'none',
-                      display: 'grid',
-                      gap: 4,
-                    }}
-                  >
-                    {group.children.map((child) => (
-                      <li
-                        key={child.id}
+                {isExpanded && (
+                  <div style={{ padding: '0 15px 15px' }}>
+                    <div>
+                      <div
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 8,
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: 6,
-                          padding: '4px 8px',
                           fontSize: 13,
+                          fontWeight: 600,
+                          marginBottom: 4,
                         }}
                       >
-                        <span>
-                          {[child.surname, child.name]
-                            .filter(Boolean)
-                            .join(' ') || child.name}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          size="small"
-                          onClick={() => handleRemoveChild(group.id, child)}
+                        Дети в группе:
+                      </div>
+                      {group.children?.length ? (
+                        <ul
+                          style={{
+                            margin: 0,
+                            padding: 0,
+                            listStyle: 'none',
+                            display: 'grid',
+                            gap: 4,
+                          }}
                         >
-                          Удалить
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div style={{ fontSize: 13, color: '#64748b' }}>
-                    Пока нет детей
+                          {group.children.map((child) => (
+                            <li
+                              key={child.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 6,
+                                padding: '4px 8px',
+                                fontSize: 13,
+                              }}
+                            >
+                              <span>
+                                {[child.surname, child.name]
+                                  .filter(Boolean)
+                                  .join(' ') || child.name}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="danger"
+                                size="small"
+                                onClick={() => handleRemoveChild(group.id, child)}
+                              >
+                                Удалить
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          Пока нет детей
+                        </div>
+                      )}
+                    </div>
+
+                    <GroupLessonsList
+                      lessons={group.lessons}
+                      groupName={group.name}
+                      courseName={group.course?.name}
+                    />
+                    <div className="card-actions">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => handleOpenAddChild(group.id)}
+                      >
+                        Добавить ребенка
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => handleEdit(group)}
+                      >
+                        Редактировать
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        onClick={() => handleDelete(group.id)}
+                      >
+                        Удалить
+                      </Button>
+                    </div>
                   </div>
                 )}
-              </div>
-
-              <GroupLessonsList
-                lessons={group.lessons}
-                groupName={group.name}
-                courseName={group.course?.name}
-              />
-              <div className="card-actions">
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={() => handleOpenAddChild(group.id)}
-                >
-                  Добавить ребенка
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => handleEdit(group)}
-                >
-                  Редактировать
-                </Button>
-                <Button
-                  type="button"
-                  variant="danger"
-                  onClick={() => handleDelete(group.id)}
-                >
-                  Удалить
-                </Button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 

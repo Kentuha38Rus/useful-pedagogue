@@ -22,6 +22,11 @@ router.patch('/users/:id/role', AdminController.updateUserRole);
 router.post('/users', AdminController.createUser);
 router.delete('/users/:id', AdminController.deleteUser);
 
+// Дети и группы (специальные маршруты — до /groups/:id)
+router.get('/children/available', AdminController.getAvailableChildren);
+router.post('/groups/add-child', AdminController.addChildToGroup);
+router.delete('/groups/remove-child', AdminController.removeChildFromGroup);
+
 // Группы
 router.get('/groups', AdminController.getAllGroups);
 router.get('/groups/:id', AdminController.getGroupDetails);
@@ -31,11 +36,6 @@ router.delete('/groups/:id', AdminController.deleteGroup);
 
 // Занятия: замена преподавателя на конкретную дату
 router.patch('/lessons/:id/substitute', AdminController.substituteLessonTeacher);
-
-// Дети и группы
-router.get('/children/available', AdminController.getAvailableChildren);
-router.post('/groups/add-child', AdminController.addChildToGroup);
-router.delete('/groups/remove-child', AdminController.removeChildFromGroup);
 
 // Курсы
 router.get('/courses', AdminController.getAllCourses);
