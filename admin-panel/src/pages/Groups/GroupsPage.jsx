@@ -7,11 +7,13 @@ import {
   deleteGroup,
   fetchCourses,
   fetchTeachers,
+  removeChildFromGroup,
 } from '../../store/slices/adminSlice';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import AddChildModal from '../../components/common/AddChildModal';
+import MonthCalendar from '../../components/common/MonthCalendar';
 
 // Порядок дней как в JS getDay()
 const DAYS = [
@@ -59,11 +61,11 @@ const formatDateRu = (dateStr) => {
 /**
  * Список занятий группы:
  *   - всегда показывает сегодня и завтра;
- *   - остальные будущие — под раскрывающимся списком;
+ *   - все будущие занятия — в календаре по кнопке;
  *   - прошедшие не показываются.
  */
-const GroupLessonsList = ({ lessons }) => {
-  const [expandedFar, setExpandedFar] = useState(false);
+const GroupLessonsList = ({ lessons, groupName, courseName }) => {
+  const [showCalendar, setShowCalendar] = useState(false);
 
   if (!lessons || !Array.isArray(lessons) || lessons.length === 0) {
     return null;
@@ -92,7 +94,6 @@ const GroupLessonsList = ({ lessons }) => {
   }
 
   const nearLessons = upcoming.filter((l) => l.date <= tomorrowStr);
-  const farLessons = upcoming.filter((l) => l.date > tomorrowStr);
 
   const renderItem = (lesson, idx) => (
     <li key={`${lesson.id || idx}-${lesson.date}-${lesson.startTime}`}>
@@ -101,6 +102,13 @@ const GroupLessonsList = ({ lessons }) => {
       {lesson.topic && ` (${lesson.topic})`}
     </li>
   );
+
+  const calendarLessons = upcoming.map((lesson) => ({
+    ...lesson,
+    groupName: groupName || 'Группа',
+    courseName: courseName || null,
+  }));
+  const initialMonth = String(upcoming[0]?.date || '').slice(0, 7);
 
   return (
     <div style={{ marginTop: 10 }}>
@@ -118,38 +126,30 @@ const GroupLessonsList = ({ lessons }) => {
         </ul>
       )}
 
-      {farLessons.length > 0 && (
-        <div>
-          <button
-            type="button"
-            onClick={() => setExpandedFar((v) => !v)}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: '#2563eb',
-              cursor: 'pointer',
-              padding: 0,
-              fontSize: 13,
-              textDecoration: 'underline',
-            }}
-          >
-            {expandedFar
-              ? 'Скрыть будущие занятия'
-              : `Показать все будущие занятия (${farLessons.length})`}
-          </button>
+      <button
+        type="button"
+        onClick={() => setShowCalendar((v) => !v)}
+        style={{
+          border: 'none',
+          background: 'transparent',
+          color: '#2563eb',
+          cursor: 'pointer',
+          padding: 0,
+          fontSize: 13,
+          textDecoration: 'underline',
+        }}
+      >
+        {showCalendar
+          ? 'Скрыть календарь'
+          : `Показать календарь будущих занятий (${upcoming.length})`}
+      </button>
 
-          {expandedFar && (
-            <ul
-              style={{
-                margin: '6px 0 0',
-                paddingLeft: 20,
-                maxHeight: 260,
-                overflowY: 'auto',
-              }}
-            >
-              {farLessons.map(renderItem)}
-            </ul>
-          )}
+      {showCalendar && (
+        <div style={{ marginTop: 10 }}>
+          <MonthCalendar
+            lessons={calendarLessons}
+            initialMonth={initialMonth}
+          />
         </div>
       )}
     </div>
@@ -171,7 +171,7 @@ const GroupsPage = () => {
     name: '',
     courseId: '',
     teacherId: '',
-    maxStudents: 10,
+    maxStudents: '',
     schedule: emptySchedule(),
   });
 
@@ -224,7 +224,7 @@ const GroupsPage = () => {
       name: group.name || '',
       courseId: group.courseId || '',
       teacherId: group.teacherId || '',
-      maxStudents: group.maxStudents || 10,
+      maxStudents: group.maxStudents ?? '',
       schedule: parseScheduleFromGroup(group.schedule),
     });
     setShowForm(true);
@@ -238,7 +238,7 @@ const GroupsPage = () => {
       name: '',
       courseId: '',
       teacherId: '',
-      maxStudents: 10,
+      maxStudents: '',
       schedule: emptySchedule(),
     });
   };
@@ -246,11 +246,13 @@ const GroupsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    const maxStudents =
+      formData.maxStudents === '' ? undefined : Number(formData.maxStudents);
     const payload = {
       name: formData.name,
       courseId: formData.courseId,
       teacherId: formData.teacherId,
-      maxStudents: formData.maxStudents,
+      maxStudents,
       schedule: buildSchedulePayload(formData.schedule),
     };
     try {
@@ -284,6 +286,26 @@ const GroupsPage = () => {
 
   const handleChildAdded = () => {
     dispatch(fetchGroups());
+  };
+
+  const handleRemoveChild = async (groupId, child) => {
+    const childName =
+      [child.surname, child.name].filter(Boolean).join(' ') ||
+      child.name ||
+      'ребёнка';
+    if (!window.confirm(`Удалить ребёнка «${childName}» из группы?`)) return;
+    try {
+      await dispatch(removeChildFromGroup({ childId: child.id, groupId })).unwrap();
+      dispatch(fetchGroups());
+    } catch (err) {
+      alert(
+        typeof err === 'string'
+          ? err
+          : err?.response?.data?.message ||
+              err?.message ||
+              'Не удалось удалить ребёнка из группы'
+      );
+    }
   };
 
   const setDaySlot = (day, value) => {
@@ -321,7 +343,7 @@ const GroupsPage = () => {
                 name: '',
                 courseId: '',
                 teacherId: '',
-                maxStudents: 10,
+                maxStudents: '',
                 schedule: emptySchedule(),
               });
               setShowForm(true);
@@ -404,7 +426,7 @@ const GroupsPage = () => {
               onChange={(e) =>
                 setFormData((prev) => ({
                   ...prev,
-                  maxStudents: parseInt(e.target.value) || 10,
+                  maxStudents: e.target.value,
                 }))
               }
             />
@@ -486,11 +508,68 @@ const GroupsPage = () => {
             <Card key={group.id} style={{ padding: '15px' }}>
               <h3>{group.name}</h3>
               <p>Курс: {group.course?.name || '—'}</p>
-              <p>Учитель: {group.teacher?.name || '—'}</p>
+              <p>Преподаватель: {group.teacher?.name || '—'}</p>
               <p>
-                Студентов: {group.children?.length || 0} / {group.maxStudents}
+                Детей: {group.children?.length || 0} / {group.maxStudents}
               </p>
-              <GroupLessonsList lessons={group.lessons} />
+
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                  Дети в группе:
+                </div>
+                {group.children?.length ? (
+                  <ul
+                    style={{
+                      margin: 0,
+                      padding: 0,
+                      listStyle: 'none',
+                      display: 'grid',
+                      gap: 4,
+                    }}
+                  >
+                    {group.children.map((child) => (
+                      <li
+                        key={child.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: 6,
+                          padding: '4px 8px',
+                          fontSize: 13,
+                        }}
+                      >
+                        <span>
+                          {[child.surname, child.name]
+                            .filter(Boolean)
+                            .join(' ') || child.name}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="small"
+                          onClick={() => handleRemoveChild(group.id, child)}
+                        >
+                          Удалить
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#64748b' }}>
+                    Пока нет детей
+                  </div>
+                )}
+              </div>
+
+              <GroupLessonsList
+                lessons={group.lessons}
+                groupName={group.name}
+                courseName={group.course?.name}
+              />
               <div className="card-actions">
                 <Button
                   type="button"

@@ -242,11 +242,17 @@ export const addChildToGroup = createAsyncThunk(
 
 export const removeChildFromGroup = createAsyncThunk(
   'admin/removeChildFromGroup',
-  async ({ childId, groupId }) => {
-    const response = await api.delete('/admin/groups/remove-child', {
-      data: { childId, groupId },
-    });
-    return { childId, groupId };
+  async ({ childId, groupId }, { rejectWithValue }) => {
+    try {
+      await api.delete('/admin/groups/remove-child', {
+        data: { childId, groupId },
+      });
+      return { childId, groupId };
+    } catch (err) {
+      return rejectWithValue(
+        getApiErrorMessage(err, 'Не удалось удалить ребёнка из группы')
+      );
+    }
   }
 );
 

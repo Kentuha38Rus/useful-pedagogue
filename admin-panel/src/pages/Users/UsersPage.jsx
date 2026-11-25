@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsers, updateUserRole, createUser, deleteUser } from '../../store/slices/adminSlice';
+import { fetchUsers, createUser, deleteUser } from '../../store/slices/adminSlice';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -26,10 +26,6 @@ const UsersPage = () => {
   useEffect(() => {
     dispatch(fetchUsers({ page, role: roleFilter, search }));
   }, [dispatch, page, roleFilter, search]);
-
-  const handleRoleChange = (userId, newRole) => {
-    dispatch(updateUserRole({ userId, role: newRole }));
-  };
 
   const handleDeleteUser = (userId, userName) => {
     if (window.confirm(`Вы уверены, что хотите удалить пользователя "${userName}" и всех его детей?`)) {
@@ -174,15 +170,6 @@ const UsersPage = () => {
                     <td data-label="Телефон">{user.phone || '-'}</td>
                     <td data-label="Детей">{user.children?.length || 0}</td>
                     <td className="cell-actions" data-label="Действия">
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        style={{ padding: '4px', marginRight: '8px' }}
-                      >
-                        <option value="admin">Админ</option>
-                        <option value="teacher">Учитель</option>
-                        <option value="parent">Родитель</option>
-                      </select>
                       <Button
                         variant="danger"
                         size="small"

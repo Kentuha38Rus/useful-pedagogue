@@ -1142,7 +1142,7 @@ class AdminController {
             model: Child,
             as: 'children',
             through: { attributes: [] },
-            attributes: ['id', 'name'],
+            attributes: ['id', 'name', 'surname'],
           },
           {
             model: Lesson,

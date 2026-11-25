@@ -30,16 +30,30 @@ const pluralLessons = (count) => {
   return `${count} ${word}`;
 };
 
+const getInitialMonth = (initialMonth) => {
+  if (typeof initialMonth === 'string' && /^\d{4}-\d{2}$/.test(initialMonth)) {
+    const [year, month] = initialMonth.split('-').map(Number);
+    if (month >= 1 && month <= 12) {
+      return new Date(year, month - 1, 1);
+    }
+  }
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+};
+
 /**
  * Месячный календарь с отмеченными днями, в которые есть занятия.
  * Используется в дашборде для расписания учителя.
  */
-const MonthCalendar = ({ lessons = [], loading = false, onSubstitute }) => {
-  const now = new Date();
-  const [monthDate, setMonthDate] = useState(
-    new Date(now.getFullYear(), now.getMonth(), 1)
-  );
+const MonthCalendar = ({
+  lessons = [],
+  loading = false,
+  onSubstitute,
+  initialMonth,
+}) => {
+  const [monthDate, setMonthDate] = useState(() => getInitialMonth(initialMonth));
   const [selectedDate, setSelectedDate] = useState(null);
+  const now = new Date();
 
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
