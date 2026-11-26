@@ -1,6 +1,7 @@
 const ChatService = require('../services/chatService');
 const { Message, User } = require('../models');
 const { requireTenant } = require('../utils/helpers');
+const { sendChatPush } = require('../utils/chatPush');
 
 exports.getDialogs = async (req, res, next) => {
   try {
@@ -71,6 +72,15 @@ exports.sendMessage = async (req, res, next) => {
         .to(`user:${senderId}`)
         .emit('new_message', messageWithSender);
     }
+
+    await sendChatPush({
+      io,
+      receiver,
+      sender: req.user,
+      chatId,
+      content,
+      tenantId: tid,
+    });
 
     res.status(201).json(messageWithSender);
   } catch (error) {

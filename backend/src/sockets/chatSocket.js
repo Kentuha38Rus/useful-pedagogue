@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { Message, User } = require('../models');
 const ChatService = require('../services/chatService');
 const { accessSecret } = require('../config/jwt');
+const { sendChatPush } = require('../utils/chatPush');
 
 module.exports = (io) => {
   io.use(async (socket, next) => {
@@ -70,12 +71,16 @@ module.exports = (io) => {
         // Проверка, что получатель в этом же тенанте
         const receiver = await User.findOne({
           where: { id: receiver_id, tenantId },
-          attributes: ['id'],
+          attributes: ['id', 'name', 'role'],
         });
         if (!receiver) {
           socket.emit('error', 'Invalid receiver');
           return;
         }
+
+        const sender = await User.findByPk(userId, {
+          attributes: ['id', 'name', 'role'],
+        });
 
         const chatId = ChatService.getChatId(userId, receiver_id);
         const message = await ChatService.sendMessage(chatId, userId, content, tenantId, Message);
@@ -91,6 +96,15 @@ module.exports = (io) => {
           .to(`user:${receiver_id}`)
           .emit('new_message', messageWithSender);
         socket.emit('message_sent', messageWithSender);
+
+        await sendChatPush({
+          io,
+          receiver,
+          sender,
+          chatId,
+          content,
+          tenantId,
+        });
       } catch (e) {
         socket.emit('error', 'Failed to send message');
       }

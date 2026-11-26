@@ -1,4 +1,3 @@
-const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 
 const {
@@ -14,22 +13,12 @@ const {
 
 const notificationService = require('../services/notificationService');
 const ChatService = require('../services/chatService');
-const { accessSecret } = require('../config/jwt');
 const { requireTenant } = require('../utils/helpers');
 
-const RESPONSE_TOKEN_TTL = '30m';
 const LESSON_NOTIFY_COOLDOWN_MS = 60 * 1000;
 
 const lessonNotifyCooldown = new Map(); // `${tenantId}:${lessonId}` -> timestamp
 const lessonPersonNotifyCooldown = new Map(); // `${tenantId}:${lessonId}:${target}` -> timestamp
-
-function signResponseToken(responseId) {
-  return jwt.sign(
-    { responseId, type: 'lesson_response' },
-    accessSecret,
-    { expiresIn: RESPONSE_TOKEN_TTL }
-  );
-}
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -40,92 +29,6 @@ function formatDate(dateStr) {
 
 function formatTime(t) {
   return t ? String(t).slice(0, 5) : '';
-}
-
-async function applyLessonResponse(responseId, status, io) {
-  const response = await LessonResponse.findByPk(responseId, {
-    include: [
-      {
-        model: Lesson,
-        as: 'lesson',
-        include: [{ model: Group, as: 'group', attributes: ['id', 'name'] }],
-      },
-      { model: Child, as: 'child', attributes: ['id', 'name'] },
-      { model: User, as: 'parent', attributes: ['id', 'name', 'email'] },
-    ],
-  });
-
-  if (!response) {
-    const err = new Error('Response not found');
-    err.status = 404;
-    throw err;
-  }
-
-  if (response.status !== 'pending') return response;
-
-  await response.update({ status, responded_at: new Date() });
-
-  const tid = response.tenant_id;
-  const adminId = response.admin_id;
-  const parentId = response.parent_id;
-
-  const event = {
-    responseId: response.id,
-    status,
-    lessonId: response.lesson_id,
-    lessonDate: response.lesson?.date,
-    lessonStartTime: response.lesson?.startTime,
-    groupName: response.lesson?.group?.name,
-    childId: response.child_id,
-    childName: response.child?.name,
-    parentId,
-    parentName: response.parent?.name,
-    respondedAt: response.responded_at,
-  };
-
-  if (io) {
-    io.to(`tenant:${tid}:role:admin`).emit('lesson_response_update', event);
-  }
-
-  if (status === 'yes' && adminId) {
-    try {
-      const childName = response.child?.name || 'Ребёнок';
-      const dateStr = formatDate(response.lesson?.date);
-      const timeRange =
-        `${formatTime(response.lesson?.startTime)}–` +
-        `${formatTime(response.lesson?.endTime)}`;
-      const groupName = response.lesson?.group?.name ? ` · ${response.lesson.group.name}` : '';
-
-      const content =
-        `✅ Подтверждаю участие\n` +
-        `${childName} — ${dateStr}, ${timeRange}${groupName}`;
-
-      const chatId = ChatService.getChatId(parentId, adminId);
-
-      const message = await Message.create({
-        tenant_id: tid,
-        chat_id: chatId,
-        sender_id: parentId,
-        content,
-        is_system: false,
-      });
-
-      const messageWithSender = await Message.findOne({
-        where: { id: message.id, tenant_id: tid },
-        include: [{ model: User, as: 'sender', attributes: ['id', 'name', 'role'] }],
-      });
-
-      if (io) {
-        io.to(`user:${adminId}`).emit('new_message', messageWithSender);
-        io.to(`user:${parentId}`).emit('new_message', messageWithSender);
-        io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
-      }
-    } catch (e) {
-      console.error('[applyLessonResponse] chat message error:', e.message);
-    }
-  }
-
-  return response;
 }
 
 async function processLessonRemindersForLessons(lessons, adminId, io, tenantId, target = {}) {
@@ -217,66 +120,80 @@ async function processLessonRemindersForLessons(lessons, adminId, io, tenantId, 
         remindersByParent.set(parent.id, { parent, items: [] });
       }
       remindersByParent.get(parent.id).items.push({ lesson, child });
-
-      const subscriptions = await PushSubscription.findAll({
-        where: { user_id: parent.id, tenant_id: tenantId },
-      });
-      if (!subscriptions.length) continue;
-
-      const responseToken = signResponseToken(response.id);
-      const chatId = ChatService.getChatId(adminId, parent.id);
-
-      const payload = {
-        title: 'Напоминание о занятии',
-        body: `${child.name}: ${formatDate(lesson.date)} в ${formatTime(
-          lesson.startTime
-        )}. Вы придёте?`,
-        icon: '/icons/turtle-192.png',
-        tag: `lesson-reminder-${response.id}`,
-        requireInteraction: true,
-        data: {
-          type: 'lesson_reminder',
-          responseId: response.id,
-          responseToken,
-          lessonId: lesson.id,
-          childId: child.id,
-          chatId,
-          url: `app/chats/${chatId}?reply=1`,
-        },
-        actions: [
-          { action: 'yes', title: '✅ Приду' },
-          { action: 'reply', title: '✍️ Написать' },
-        ],
-      };
-
-      const results = await notificationService.sendPushNotifications(subscriptions, payload);
-      if (results.some((r) => r.success)) sentPushCount += 1;
     }
   }
 
   let chatCreated = 0;
   for (const [parentId, { items }] of remindersByParent) {
+    const sorted = items
+      .slice()
+      .sort((a, b) =>
+        `${a.lesson.date} ${a.lesson.startTime}`.localeCompare(
+          `${b.lesson.date} ${b.lesson.startTime}`
+        )
+      );
+
+    const lines = sorted.map(({ lesson, child }) => {
+      const time = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
+      const groupName = lesson.group?.name ? ` · ${lesson.group.name}` : '';
+      const childName =
+        [child.surname, child.name].filter(Boolean).join(' ') || child.name;
+      return `• ${childName} — ${formatDate(lesson.date)}, ${time}${groupName}`;
+    });
+
+    const chatId = ChatService.getChatId(adminId, parentId);
+
+    const pushPayload = {
+      title: 'У вашего ребёнка занятия',
+      body:
+        `${lines.join('\n')}\n\n` +
+        'Если вы ПРИДЁТЕ или НЕ ПРИДЁТЕ, отметьте это на странице «Расписание» ' +
+        'в личном кабинете или кнопкой в чате. Спасибо.',
+      tag: `lesson-reminder-${parentId}`,
+      requireInteraction: true,
+      data: {
+        type: 'lesson_reminder',
+        lessonIds: sorted.map(({ lesson }) => lesson.id),
+        childIds: sorted.map(({ child }) => child.id),
+        chatId,
+        url: `app/chats/${chatId}`,
+      },
+    };
+
     try {
-      const sorted = items
-        .slice()
-        .sort((a, b) =>
-          String(a.lesson.startTime).localeCompare(String(b.lesson.startTime))
-        );
-
-      const lines = sorted.map(({ lesson, child }) => {
-        const time = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
-        const groupName = lesson.group?.name ? ` · ${lesson.group.name}` : '';
-        return `• ${child.name} — ${time}${groupName}`;
+      const subscriptions = await PushSubscription.findAll({
+        where: { user_id: parentId, tenant_id: tenantId },
       });
+      if (subscriptions.length > 0) {
+        const results = await notificationService.sendPushNotifications(
+          subscriptions,
+          pushPayload
+        );
+        if (results.some((r) => r.success)) sentPushCount += 1;
+      }
+    } catch (e) {
+      console.error(`[lesson-reminders] parent push error for ${parentId}:`, e.message);
+    }
 
-      const dateForHeader = sorted[0]?.lesson?.date || '';
+    try {
       const content =
-        `🔔 Напоминание о занятии (${formatDate(dateForHeader)})\n` +
+        `🔔 У вашего ребёнка занятия\n` +
         lines.join('\n') +
-        `\n\nПодтвердите участие в push-уведомлении ` +
-        `или напишите ответным сообщением.`;
+        `\n\nОтметьте, пожалуйста, придёте вы или нет.`;
 
-      const chatId = ChatService.getChatId(adminId, parentId);
+      const metadata = {
+        type: 'lesson_intent',
+        items: sorted.map(({ lesson, child }) => ({
+          lessonId: lesson.id,
+          childId: child.id,
+          childName:
+            [child.surname, child.name].filter(Boolean).join(' ') || child.name,
+          date: lesson.date,
+          startTime: lesson.startTime,
+          endTime: lesson.endTime,
+          groupName: lesson.group?.name || null,
+        })),
+      };
 
       const message = await Message.create({
         tenant_id: tenantId,
@@ -284,6 +201,7 @@ async function processLessonRemindersForLessons(lessons, adminId, io, tenantId, 
         sender_id: adminId,
         content,
         is_system: false,
+        metadata,
       });
 
       const messageWithSender = await Message.findOne({
@@ -704,61 +622,6 @@ exports.sendLessonRemindersForToday = async (req, res, next) => {
         `${teacherPushCount} push учителям; ` +
         `сообщений в чат: родителям — ${chatCreated}, учителям — ${chatCreatedTeachers}`,
     });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.respondToLessonReminderByToken = async (req, res, next) => {
-  try {
-    const { token, status } = req.body || {};
-    if (!token || !['yes', 'no'].includes(status)) {
-      return res.status(400).json({ error: 'token and status (yes|no) required' });
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, accessSecret);
-    } catch (e) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-
-    if (decoded.type !== 'lesson_response' || !decoded.responseId) {
-      return res.status(400).json({ error: 'Invalid token payload' });
-    }
-
-    await applyLessonResponse(decoded.responseId, status, req.app.get('io'));
-    res.json({ success: true });
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.respondToLessonReminder = async (req, res, next) => {
-  try {
-    const tid = requireTenant(req);
-    const { id } = req.params;
-    const { status } = req.body || {};
-    if (!['yes', 'no'].includes(status)) {
-      return res.status(400).json({ error: 'status must be yes or no' });
-    }
-
-    const response = await LessonResponse.findOne({
-      where: { id, tenant_id: tid },
-    });
-    if (!response) {
-      return res.status(404).json({ error: 'Response not found' });
-    }
-
-    if (req.user.role === 'parent' && response.parent_id !== req.user.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    if (!['parent', 'admin'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    await applyLessonResponse(response.id, status, req.app.get('io'));
-    res.json({ success: true });
   } catch (error) {
     next(error);
   }

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchMySchedule } from '../../store/slices/scheduleSlice';
 import CalendarView from '../../components/schedule/CalendarView';
+import TomorrowLessons from '../../components/schedule/TomorrowLessons';
 import styles from './SchedulePage.module.scss';
 
 const toLocalDateStr = (date) => {
@@ -42,6 +43,7 @@ const SchedulePage = () => {
       )}
 
       <CalendarView lessons={upcomingLessons} />
+      <TomorrowLessons lessons={upcomingLessons} loading={loading} />
     </div>
   );
 };

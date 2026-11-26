@@ -3,12 +3,6 @@ const notificationController = require('../controllers/notificationController');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 
-// Публичный endpoint для Service Worker (без auth, но с подписанным токеном)
-router.post(
-  '/lesson-responses/respond-by-token',
-  notificationController.respondToLessonReminderByToken
-);
-
 // Все остальные требуют auth
 router.use(auth);
 
@@ -42,10 +36,6 @@ router.get(
   '/lesson-responses',
   roleCheck(['admin']),
   notificationController.getLessonResponses
-);
-router.post(
-  '/lesson-responses/:id/respond',
-  notificationController.respondToLessonReminder
 );
 
 module.exports = router;

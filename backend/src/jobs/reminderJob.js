@@ -6,6 +6,7 @@ const {
 const notificationService = require('../services/notificationService');
 const ChatService = require('../services/chatService');
 const { withLock } = require('../utils/distributedLock');
+const { sendChatPush } = require('../utils/chatPush');
 
 const TIMEOUT_MINUTES = 10;
 
@@ -116,32 +117,19 @@ module.exports = (io) => {
           });
           if (!subscriptions.length) continue;
 
-          const jwt = require('jsonwebtoken');
-          const { accessSecret } = require('../config/jwt');
-          const responseToken = jwt.sign(
-            { responseId: response.id, type: 'lesson_response' },
-            accessSecret,
-            { expiresIn: '30m' }
-          );
-
           const payload = {
-            title: 'Напоминание о занятии',
-            body: `${child.name}: занятие начнётся через час. Вы придёте?`,
-            icon: '/icons/turtle-192.png',
+            title: 'У вашего ребёнка занятие',
+            body:
+              `${child.name}: ${formatDate(lesson.date)}, ${timeRange}. ` +
+              'Отметьте, пожалуйста, придёте вы или нет на странице «Расписание».',
             tag: `lesson-reminder-${response.id}`,
             requireInteraction: true,
             data: {
               type: 'lesson_reminder',
-              responseId: response.id,
-              responseToken,
               lessonId: lesson.id,
               childId: child.id,
               url: 'app/schedule',
             },
-            actions: [
-              { action: 'yes', title: '✅ Приду' },
-              { action: 'reply', title: '✍️ Написать' },
-            ],
           };
 
           await notificationService.sendPushNotifications(subscriptions, payload);
@@ -216,6 +204,15 @@ module.exports = (io) => {
               io.to(`user:${parentId}`).emit('new_message', messageWithSender);
               io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
             }
+
+            await sendChatPush({
+              io,
+              receiver: { id: parentId, name: r.parent?.name, role: 'parent' },
+              sender: { id: adminId, name: 'Администратор', role: 'admin' },
+              chatId,
+              content,
+              tenantId: tid,
+            });
           } catch (e) {
             console.error('[cron] timeout system message error:', e.message);
           }
@@ -248,12 +245,11 @@ module.exports = (io) => {
               body: `${r.child?.name || 'Ребёнок'}: ${
                 r.parent?.name || 'родитель'
               } не ответил(а) за ${TIMEOUT_MINUTES} минут`,
-              icon: '/icons/turtle-192.png',
               tag: `lesson-timeout-${r.id}`,
               data: {
                 type: 'no_response',
                 responseId: r.id,
-                url: 'app/chats',
+                url: 'chats',
               },
             });
           }

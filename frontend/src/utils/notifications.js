@@ -169,14 +169,3 @@ export const onPushMessage = (callback) => {
     channel.close();
   };
 };
-
-// ----------------------------------------------------------------
-// Ответ на напоминание из UI (с авторизацией)
-// ----------------------------------------------------------------
-export const respondToLessonReminder = async (responseId, status) => {
-  const response = await api.post(
-    `/notifications/lesson-responses/${responseId}/respond`,
-    { status }
-  );
-  return response.data;
-};

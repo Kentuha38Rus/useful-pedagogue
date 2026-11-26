@@ -41,6 +41,10 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: false,
     },
+    metadata: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+    },
   }, {
     tableName: 'messages',
     timestamps: true,

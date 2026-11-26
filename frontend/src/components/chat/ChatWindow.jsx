@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import {
   fetchMessages,
   sendMessage,
@@ -10,6 +10,7 @@ import {
   getOtherUserId,
 } from '../../store/slices/chatSlice';
 import { ensureSocketConnected, getSocket } from '../../utils/socket';
+import useLessonIntent from '../../hooks/useLessonIntent';
 import MessageInput from './MessageInput';
 
 const formatTime = (value) => {
@@ -18,6 +19,14 @@ const formatTime = (value) => {
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
+
+const formatDate = (value) => {
+  const text = String(value || '').slice(0, 10);
+  const [year, month, day] = text.split('-');
+  return year && month && day ? `${day}.${month}.${year}` : text;
+};
+
+const formatClock = (value) => (value ? String(value).slice(0, 5) : '');
 
 const extractChatId = (params, pathname) => {
   if (params?.chatId) return params.chatId;
@@ -35,17 +44,17 @@ const ChatWindow = () => {
   const params = useParams();
   const location = useLocation();
   const dispatch = useDispatch();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const chatId = extractChatId(params, location.pathname);
 
   const { messages, loading } = useSelector((state) => state.chat);
   const myUserId = useSelector((state) => state.auth.user?.id);
+  const myUserRole = useSelector((state) => state.auth.user?.role);
   const messagesEndRef = useRef(null);
   const [sendError, setSendError] = useState('');
+  const { state: intentState, respond: respondIntent } = useLessonIntent();
 
   const otherUserId = chatId ? getOtherUserId(chatId, myUserId) : null;
-  const replyIntent = searchParams.get('reply') === '1';
 
   useEffect(() => {
     if (!chatId) return;
@@ -121,16 +130,6 @@ const ChatWindow = () => {
     });
   }, [messages, myUserId, dispatch]);
 
-  useEffect(() => {
-    if (!replyIntent) return;
-    const t = setTimeout(() => {
-      const next = new URLSearchParams(searchParams);
-      next.delete('reply');
-      setSearchParams(next, { replace: true });
-    }, 2000);
-    return () => clearTimeout(t);
-  }, [replyIntent, searchParams, setSearchParams]);
-
   const handleSend = async (text) => {
     if (!otherUserId) {
       console.error('[chat] receiver not found for chat', chatId);
@@ -179,41 +178,6 @@ const ChatWindow = () => {
         minWidth: 0,
       }}
     >
-      {replyIntent && (
-        <div
-          style={{
-            padding: '10px 16px',
-            background: '#fef3c7',
-            color: '#92400e',
-            fontSize: 13,
-            borderBottom: '1px solid #fde68a',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <span>✍️ Напишите администратору по поводу занятия — сообщение уйдёт в чат.</span>
-          <button
-            type="button"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.delete('reply');
-              setSearchParams(next, { replace: true });
-            }}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: '#92400e',
-              cursor: 'pointer',
-              fontSize: 16,
-              lineHeight: 1,
-            }}
-            aria-label="Скрыть"
-          >×</button>
-        </div>
-      )}
-
       <div
         style={{
           flex: 1,
@@ -286,6 +250,92 @@ const ChatWindow = () => {
                 }}
               >
                 <div style={{ fontSize: 14, lineHeight: 1.4 }}>{msg.content}</div>
+
+                {myUserRole === 'parent' &&
+                  !isOwn &&
+                  msg.metadata?.type === 'lesson_intent' &&
+                  Array.isArray(msg.metadata.items) && (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                      {msg.metadata.items.map((item) => {
+                        const key = `${item.lessonId}:${item.childId}`;
+                        const st = intentState[key] || {};
+                        const label = [
+                          item.childName,
+                          formatDate(item.date),
+                          `${formatClock(item.startTime)}–${formatClock(item.endTime)}`,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ');
+
+                        return (
+                          <div
+                            key={key}
+                            style={{
+                              borderTop: '1px solid #e2e8f0',
+                              paddingTop: 6,
+                            }}
+                          >
+                            <div style={{ fontSize: 12, marginBottom: 4 }}>
+                              {label}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                disabled={st.loading || st.status}
+                                onClick={() =>
+                                  respondIntent(item.lessonId, item.childId, 'yes')
+                                }
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: 6,
+                                  border: '1px solid #27ae60',
+                                  background: '#e8f7ee',
+                                  color: '#1e7a45',
+                                  cursor: 'pointer',
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  opacity: st.loading || st.status ? 0.6 : 1,
+                                }}
+                              >
+                                ✅ Приду
+                              </button>
+                              <button
+                                type="button"
+                                disabled={st.loading || st.status}
+                                onClick={() =>
+                                  respondIntent(item.lessonId, item.childId, 'no')
+                                }
+                                style={{
+                                  padding: '4px 10px',
+                                  borderRadius: 6,
+                                  border: '1px solid #e74c3c',
+                                  background: '#fdecec',
+                                  color: '#a5281b',
+                                  cursor: 'pointer',
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  opacity: st.loading || st.status ? 0.6 : 1,
+                                }}
+                              >
+                                ❌ Не приду
+                              </button>
+                            </div>
+                            {st.message && (
+                              <div style={{ fontSize: 12, color: '#1e7a45', marginTop: 4 }}>
+                                ✅ {st.message}
+                              </div>
+                            )}
+                            {st.error && (
+                              <div style={{ fontSize: 12, color: '#a5281b', marginTop: 4 }}>
+                                ⚠️ {st.error}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                 <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4, textAlign: 'right' }}>
                   {formatTime(msg.created_at || msg.createdAt)}
                 </div>
@@ -309,7 +359,7 @@ const ChatWindow = () => {
         </div>
       )}
 
-      <MessageInput onSend={handleSend} autoFocus={replyIntent} />
+      <MessageInput onSend={handleSend} />
     </div>
   );
 };

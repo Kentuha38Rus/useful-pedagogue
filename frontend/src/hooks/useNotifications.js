@@ -69,16 +69,6 @@ const useNotifications = () => {
         const payload = message.payload || {};
         if (pushEnabledRef.current) showBrowserNotification(payload);
         setNotifications((prev) => [payload, ...prev]);
-      } else if (message.type === 'notification_action') {
-        const { action, data } = message;
-        setNotifications((prev) => [
-          {
-            title: action === 'yes' ? 'Вы подтвердили' : 'Вы отказались',
-            body: `Ответ отправлен (responseId=${data?.responseId})`,
-            type: 'local_ack',
-          },
-          ...prev,
-        ]);
       }
     });
     return unsubscribe;

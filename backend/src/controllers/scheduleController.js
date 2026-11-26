@@ -1,6 +1,7 @@
 const scheduleService = require('../services/scheduleService');
 const ChatService = require('../services/chatService');
 const { requireTenant } = require('../utils/helpers');
+const { sendChatPush } = require('../utils/chatPush');
 const { Lesson, Group, Child, User, LessonResponse, Message } = require('../models');
 
 exports.getMySchedule = async (req, res, next) => {
@@ -108,7 +109,7 @@ exports.respondToLessonIntent = async (req, res, next) => {
 
     const admins = await User.findAll({
       where: { tenantId: tid, role: 'admin' },
-      attributes: ['id', 'name'],
+      attributes: ['id', 'name', 'role'],
       order: [['createdAt', 'ASC']],
     });
 
@@ -169,6 +170,15 @@ exports.respondToLessonIntent = async (req, res, next) => {
           io.to(`user:${admin.id}`).emit('new_message', messageWithSender);
           io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
         }
+
+        await sendChatPush({
+          io,
+          receiver: admin,
+          sender: req.user,
+          chatId,
+          content,
+          tenantId: tid,
+        });
 
         adminsNotified += 1;
       } catch (error) {
