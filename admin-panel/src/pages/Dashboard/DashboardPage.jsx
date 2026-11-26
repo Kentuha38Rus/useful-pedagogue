@@ -260,7 +260,7 @@ const DashboardPage = () => {
         id: t.id,
         title: t.name || t.username || 'Без имени',
         subtitle:
-          [t.email, t.username ? `@${t.username}` : null]
+          [t.email, t.username || null]
             .filter(Boolean)
             .join(' • ') || '—',
       })),
@@ -276,7 +276,7 @@ const DashboardPage = () => {
         id: p.id,
         title: p.name || p.username || 'Без имени',
         subtitle:
-          [p.email, p.username ? `@${p.username}` : null]
+          [p.email, p.username || null]
             .filter(Boolean)
             .join(' • ') || '—',
       })),

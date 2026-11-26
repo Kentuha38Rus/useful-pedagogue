@@ -74,7 +74,7 @@ const ParentDetails = ({ user, loading, error, onBack, onEditChild, onAddChild }
           <Field label="Телефон" value={user.phone} />
           <Field
             label="Логин"
-            value={user.username ? `@${user.username}` : null}
+            value={user.username || null}
           />
         </div>
       </div>

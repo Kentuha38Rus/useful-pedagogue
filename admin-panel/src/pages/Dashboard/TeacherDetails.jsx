@@ -129,7 +129,7 @@ const TeacherDetails = ({
           <Field label="Телефон" value={user.phone} />
           <Field
             label="Логин"
-            value={user.username ? `@${user.username}` : null}
+            value={user.username || null}
           />
           <Field
             label="Групп"

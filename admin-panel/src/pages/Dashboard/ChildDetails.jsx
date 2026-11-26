@@ -60,7 +60,7 @@ const ChildDetails = ({ child, loading, error, onBack }) => {
               <Field label="Телефон" value={parent.phone} />
               <Field
                 label="Логин"
-                value={parent.username ? `@${parent.username}` : null}
+                value={parent.username || null}
               />
             </div>
           ) : (

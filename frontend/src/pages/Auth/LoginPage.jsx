@@ -51,7 +51,7 @@ const LoginPage = () => {
         )}
         <form onSubmit={handleSubmit}>
           <Input
-            label="Логин (например, @Andrey) или Email"
+            label="Введите логин или email"
             type="text"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
