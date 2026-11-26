@@ -63,11 +63,41 @@ class AuthService {
     }
 
     const normalized = String(identifier).trim().toLowerCase();
+    const tenantInclude = () => [
+      {
+        model: Tenant,
+        as: 'tenant',
+        attributes: ['id', 'slug', 'name', 'status', 'plan'],
+        required: false,
+      },
+    ];
 
-    const user = await User.findOne({
-      where: { [Op.or]: [{ username: { [Op.iLike]: normalized } }, { email: { [Op.iLike]: normalized } }] },
-      include: [{ model: Tenant, as: 'tenant', attributes: ['id', 'slug', 'name', 'status', 'plan'], required: false }],
+    let user = await User.findOne({
+      where: {
+        [Op.or]: [
+          { username: { [Op.iLike]: normalized } },
+          { email: { [Op.iLike]: normalized } },
+        ],
+      },
+      include: tenantInclude(),
     });
+
+    // Логин могли задать с символом @ или без него — принимаем оба варианта.
+    if (!user) {
+      let usernameFallback = null;
+      if (normalized.startsWith('@')) {
+        usernameFallback = normalized.slice(1);
+      } else if (!normalized.includes('@')) {
+        usernameFallback = `@${normalized}`;
+      }
+
+      if (usernameFallback) {
+        user = await User.findOne({
+          where: { username: { [Op.iLike]: usernameFallback } },
+          include: tenantInclude(),
+        });
+      }
+    }
 
     if (!user) { const err = new Error('Invalid credentials'); err.status = 401; throw err; }
 

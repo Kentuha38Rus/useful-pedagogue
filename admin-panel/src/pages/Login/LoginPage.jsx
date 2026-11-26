@@ -51,7 +51,7 @@ const LoginPage = () => {
         <h2>Вход в админ-панель</h2>
         <form onSubmit={handleSubmit}>
           <Input
-            label="Логин или Email"
+            label="Логин (например, @Andrey) или Email"
             type="text"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
