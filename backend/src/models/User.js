@@ -47,15 +47,15 @@ module.exports = (sequelize) => {
     timestamps: true,
     hooks: {
       beforeCreate: (user) => {
-        if (user.email) user.email = user.email.toLowerCase();
-        if (user.username) user.username = user.username.toLowerCase();
+        if (user.email) user.email = user.email.toLowerCase().trim();
+        if (user.username) user.username = user.username.toLowerCase().trim();
       },
       beforeUpdate: (user) => {
         if (user.changed('email') && user.email) {
-          user.email = user.email.toLowerCase();
+          user.email = user.email.toLowerCase().trim();
         }
         if (user.changed('username') && user.username) {
-          user.username = user.username.toLowerCase();
+          user.username = user.username.toLowerCase().trim();
         }
       },
     },

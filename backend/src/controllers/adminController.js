@@ -1059,19 +1059,26 @@ class AdminController {
     try {
       const tid = requireTenant(req);
       const { username, email, password, name, phone, role } = req.body;
-      if (!username || !password || !name) {
+      const cleanUsername = username ? String(username).trim() : '';
+      const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+
+      if (!cleanUsername || !password || !name) {
         return res.status(400).json({ message: 'Username, password and name are required' });
       }
       if (!['admin', 'teacher', 'parent'].includes(role)) {
         return res.status(400).json({ message: 'Invalid role' });
       }
 
-      const existingUsername = await User.findOne({ where: { username } });
+      const existingUsername = await User.findOne({
+        where: { username: { [Op.iLike]: cleanUsername } },
+      });
       if (existingUsername)
         return res.status(400).json({ message: 'Username already taken' });
 
-      if (email) {
-        const existingEmail = await User.findOne({ where: { email } });
+      if (cleanEmail) {
+        const existingEmail = await User.findOne({
+          where: { email: { [Op.iLike]: cleanEmail } },
+        });
         if (existingEmail)
           return res.status(400).json({ message: 'Email already in use' });
       }
@@ -1079,8 +1086,8 @@ class AdminController {
       const passwordHash = await bcrypt.hash(password, 10);
       const user = await User.create({
         tenantId: tid,
-        username,
-        email: email || null,
+        username: cleanUsername,
+        email: cleanEmail,
         passwordHash,
         name,
         phone: phone || null,

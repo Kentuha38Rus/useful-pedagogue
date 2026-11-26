@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { User, Tenant } = require('../models');
-const { Op } = require('sequelize');
+const { Op, fn, col, where: sqlWhere } = require('sequelize');
 const redis = require('../config/redis');
 const {
   accessSecret,
@@ -75,8 +75,8 @@ class AuthService {
     let user = await User.findOne({
       where: {
         [Op.or]: [
-          { username: { [Op.iLike]: normalized } },
-          { email: { [Op.iLike]: normalized } },
+          sqlWhere(fn('lower', fn('trim', col('username'))), normalized),
+          sqlWhere(fn('lower', fn('trim', col('email'))), normalized),
         ],
       },
       include: tenantInclude(),
@@ -93,7 +93,10 @@ class AuthService {
 
       if (usernameFallback) {
         user = await User.findOne({
-          where: { username: { [Op.iLike]: usernameFallback } },
+          where: sqlWhere(
+            fn('lower', fn('trim', col('username'))),
+            usernameFallback
+          ),
           include: tenantInclude(),
         });
       }
