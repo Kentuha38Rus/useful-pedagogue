@@ -47,7 +47,20 @@ const ChatWindow = () => {
   const currentDialog = (dialogs || []).find(
     (d) => String(d.chat_id) === String(chatId)
   );
-  const dialogTitle = currentDialog?.other_user?.name || 'Диалог';
+  const dialogUser = location.state?.otherUser;
+  const isReadOnlyChat =
+    String(chatId || '').startsWith('auto_') ||
+    String(chatId || '').startsWith('broadcast_');
+  const specialTitle = String(chatId || '').startsWith('auto_')
+    ? 'Автоуведомления'
+    : String(chatId || '').startsWith('broadcast_')
+    ? 'Рассылки'
+    : null;
+  const dialogTitle =
+    currentDialog?.other_user?.name ||
+    dialogUser?.name ||
+    specialTitle ||
+    'Диалог';
 
   const otherUserId = chatId ? getOtherUserId(chatId, myUserId) : null;
 
@@ -71,7 +84,7 @@ const ChatWindow = () => {
       if (
         isIncoming &&
         !m.is_read &&
-        !m.is_system &&
+        (!m.is_system || String(chatId).startsWith('auto_')) &&
         m.id &&
         !String(m.id).startsWith('local-')
       ) {
@@ -200,7 +213,24 @@ const ChatWindow = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <MessageInput onSend={handleSend} />
+      {isReadOnlyChat ? (
+        <div
+          style={{
+            padding: '10px 16px',
+            background: '#f8fafc',
+            borderTop: '1px solid #e2e8f0',
+            color: '#64748b',
+            fontSize: 13,
+            textAlign: 'center',
+          }}
+        >
+          {String(chatId || '').startsWith('auto_')
+            ? 'Чат автоуведомлений — ответить нельзя.'
+            : 'Чат рассылок — ответить нельзя.'}
+        </div>
+      ) : (
+        <MessageInput onSend={handleSend} />
+      )}
     </div>
   );
 };

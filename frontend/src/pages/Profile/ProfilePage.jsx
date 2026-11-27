@@ -14,12 +14,13 @@ const ProfilePage = () => {
   );
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const isParent = user?.role === 'parent';
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && isParent) {
       dispatch(fetchChildren());
     }
-  }, [dispatch, isAuthenticated]);
+  }, [dispatch, isAuthenticated, isParent]);
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -34,45 +35,47 @@ const ProfilePage = () => {
         <Button variant="outline" onClick={handleLogout}>Выйти</Button>
       </Card>
 
-      <Card className={styles.childrenCard}>
-        <div className={styles.header}>
-          <h3>Мои дети</h3>
-          <span className={styles.hint}>
-            Данные детей заполняет администратор школы
-          </span>
-        </div>
+      {isParent && (
+        <Card className={styles.childrenCard}>
+          <div className={styles.header}>
+            <h3>Мои дети</h3>
+            <span className={styles.hint}>
+              Данные детей заполняет администратор школы
+            </span>
+          </div>
 
-        {children.length === 0 ? (
-          <p>Нет добавленных детей</p>
-        ) : (
-          children.map((child) => {
-            const groups = child.groups || [];
-            return (
-              <div key={child.id} className={styles.childItem}>
-                <div className={styles.childInfo}>
-                  <span className={styles.childName}>
-                    {[child.surname, child.name].filter(Boolean).join(' ')}
-                    {child.birthDate ? ` (${child.birthDate})` : ''}
-                  </span>
+          {children.length === 0 ? (
+            <p>Нет добавленных детей</p>
+          ) : (
+            children.map((child) => {
+              const groups = child.groups || [];
+              return (
+                <div key={child.id} className={styles.childItem}>
+                  <div className={styles.childInfo}>
+                    <span className={styles.childName}>
+                      {[child.surname, child.name].filter(Boolean).join(' ')}
+                      {child.birthDate ? ` (${child.birthDate})` : ''}
+                    </span>
 
-                  {groups.length === 0 ? (
-                    <p className={styles.noGroup}>
-                      Ребёнок не записан ни в одну группу
-                    </p>
-                  ) : (
-                    <div className={styles.groupInfo}>
-                      <p>
-                        <strong>Группы:</strong>{' '}
-                        {groups.map((group) => group.name).join(', ')}
+                    {groups.length === 0 ? (
+                      <p className={styles.noGroup}>
+                        Ребёнок не записан ни в одну группу
                       </p>
-                    </div>
-                  )}
+                    ) : (
+                      <div className={styles.groupInfo}>
+                        <p>
+                          <strong>Группы:</strong>{' '}
+                          {groups.map((group) => group.name).join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-      </Card>
+              );
+            })
+          )}
+        </Card>
+      )}
 
       <InstallApp />
       <Settings />

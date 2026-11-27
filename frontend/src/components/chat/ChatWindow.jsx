@@ -55,6 +55,9 @@ const ChatWindow = () => {
   const { state: intentState, respond: respondIntent } = useLessonIntent();
 
   const otherUserId = chatId ? getOtherUserId(chatId, myUserId) : null;
+  const isReadOnlyChat =
+    String(chatId || '').startsWith('broadcast_') ||
+    String(chatId || '').startsWith('auto_');
 
   useEffect(() => {
     if (!chatId) return;
@@ -359,7 +362,24 @@ const ChatWindow = () => {
         </div>
       )}
 
-      <MessageInput onSend={handleSend} />
+      {isReadOnlyChat ? (
+        <div
+          style={{
+            padding: '10px 16px',
+            background: '#f8fafc',
+            borderTop: '1px solid #e2e8f0',
+            color: '#64748b',
+            fontSize: 13,
+            textAlign: 'center',
+          }}
+        >
+          {String(chatId || '').startsWith('broadcast_')
+            ? 'Чат рассылок — ответить нельзя.'
+            : 'Чат автоуведомлений — ответить нельзя.'}
+        </div>
+      ) : (
+        <MessageInput onSend={handleSend} />
+      )}
     </div>
   );
 };

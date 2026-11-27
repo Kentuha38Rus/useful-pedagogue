@@ -127,12 +127,20 @@ const chatSlice = createSlice({
 
       const chatId = message.chat_id;
       const isOwn = String(message.sender_id) === String(myUserId);
+      const isBroadcast = String(chatId).startsWith('broadcast_');
+      const isAuto = String(chatId).startsWith('auto_');
 
       let dialog = state.dialogs.find((d) => d.chat_id === chatId);
       if (!dialog) {
         dialog = {
           chat_id: chatId,
-          other_user: isOwn ? null : message.sender || null,
+          other_user: isBroadcast
+            ? { id: 'broadcast', name: 'Рассылки', role: 'system' }
+            : isAuto
+            ? { id: 'auto', name: 'Автоуведомления', role: 'system' }
+            : isOwn
+            ? null
+            : message.sender || null,
           last_message: message,
           unread_count:
             !isOwn && state.activeChatId !== chatId ? 1 : 0,

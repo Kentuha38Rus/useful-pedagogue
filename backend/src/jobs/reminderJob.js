@@ -4,9 +4,7 @@ const {
   Lesson, Group, Child, User, PushSubscription, LessonResponse, Message,
 } = require('../models');
 const notificationService = require('../services/notificationService');
-const ChatService = require('../services/chatService');
 const { withLock } = require('../utils/distributedLock');
-const { sendChatPush } = require('../utils/chatPush');
 
 const TIMEOUT_MINUTES = 10;
 
@@ -173,48 +171,54 @@ module.exports = (io) => {
         const adminId = r.admin_id;
         const parentId = r.parent_id;
 
-        if (adminId && parentId) {
+        if (parentId) {
           try {
-            const chatId = ChatService.getChatId(adminId, parentId);
+            const admins = await User.findAll({
+              where: { role: 'admin', tenantId: tid },
+              attributes: ['id', 'name'],
+            });
+            const senderId = adminId || admins[0]?.id;
+            if (!senderId) {
+              throw new Error('no admin to send auto notification');
+            }
+
             const childName = r.child?.name || 'Ребёнок';
             const timeRange =
               `${formatTime(r.lesson?.startTime)}–` +
               `${formatTime(r.lesson?.endTime)}`;
 
             const content =
-              `🔔 Автоуведомление: родитель не ответил на напоминание ` +
+              `🔔 Автоуведомление: родитель ${
+                r.parent?.name || ''
+              } не ответил на напоминание ` +
               `в течение ${TIMEOUT_MINUTES} минут.\n` +
               `${childName} — ${timeRange}`;
 
+            const autoChatId = `auto_${tid}`;
             const message = await Message.create({
               tenant_id: tid,
-              chat_id: chatId,
-              sender_id: adminId,
+              chat_id: autoChatId,
+              sender_id: senderId,
               content,
               is_system: true,
             });
 
             const messageWithSender = await Message.findOne({
               where: { id: message.id, tenant_id: tid },
-              include: [{ model: User, as: 'sender', attributes: ['id', 'name', 'role'] }],
+              include: [
+                { model: User, as: 'sender', attributes: ['id', 'name', 'role'] },
+              ],
             });
 
             if (io) {
-              io.to(`user:${adminId}`).emit('new_message', messageWithSender);
-              io.to(`user:${parentId}`).emit('new_message', messageWithSender);
-              io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
+              io.to(`tenant:${tid}:role:admin`).emit(
+                'new_message',
+                messageWithSender
+              );
+              io.to(`chat_${autoChatId}`).emit('new_message', messageWithSender);
             }
-
-            await sendChatPush({
-              io,
-              receiver: { id: parentId, name: r.parent?.name, role: 'parent' },
-              sender: { id: adminId, name: 'Администратор', role: 'admin' },
-              chatId,
-              content,
-              tenantId: tid,
-            });
           } catch (e) {
-            console.error('[cron] timeout system message error:', e.message);
+            console.error('[cron] timeout auto notification error:', e.message);
           }
         }
 
@@ -249,7 +253,7 @@ module.exports = (io) => {
               data: {
                 type: 'no_response',
                 responseId: r.id,
-                url: 'chats',
+                url: `chats/auto_${tid}`,
               },
             });
           }

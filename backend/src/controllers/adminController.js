@@ -16,6 +16,7 @@ const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const notificationService = require('../services/notificationService');
 const ChatService = require('../services/chatService');
+const { sendChatPush } = require('../utils/chatPush');
 const {
   generateLessonsForGroup,
   cancelMismatchedFutureLessons,
@@ -1794,6 +1795,96 @@ class AdminController {
     }
   }
 
+  // ----- Массовая рассылка в отдельные чаты «Рассылки» -----
+  static async broadcastMessage(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const adminId = req.user.id;
+      const { role, userIds, content } = req.body || {};
+      const cleanContent = String(content || '').trim();
+
+      if (!['teacher', 'parent'].includes(role)) {
+        return res.status(400).json({ error: 'role must be teacher or parent' });
+      }
+      if (!cleanContent) {
+        return res.status(400).json({ error: 'Введите текст рассылки' });
+      }
+
+      const selectedIds = Array.isArray(userIds)
+        ? userIds.map(String).filter(Boolean)
+        : [];
+
+      const where = { tenantId: tid, role };
+      if (selectedIds.length) {
+        where.id = { [Op.in]: selectedIds };
+      }
+
+      const users = await User.findAll({
+        where,
+        attributes: ['id', 'name', 'role'],
+      });
+
+      if (!users.length) {
+        return res.status(400).json({ error: 'Нет получателей для рассылки' });
+      }
+
+      const io = req.app.get('io');
+      let created = 0;
+
+      for (const user of users) {
+        try {
+          const chatId = `broadcast_${user.id}`;
+          const message = await Message.create({
+            tenant_id: tid,
+            chat_id: chatId,
+            sender_id: adminId,
+            content: cleanContent,
+            is_system: false,
+          });
+
+          const messageWithSender = await Message.findOne({
+            where: { id: message.id, tenant_id: tid },
+            include: [
+              { model: User, as: 'sender', attributes: ['id', 'name', 'role'] },
+            ],
+          });
+
+          if (io) {
+            io.to(`user:${user.id}`).emit('new_message', messageWithSender);
+            io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
+          }
+
+          await sendChatPush({
+            io,
+            receiver: user,
+            sender: req.user,
+            chatId,
+            content: cleanContent,
+            tenantId: tid,
+          });
+
+          created += 1;
+        } catch (e) {
+          console.error(
+            `[broadcast] error for user ${user.id}:`,
+            e.message
+          );
+        }
+      }
+
+      const audience = role === 'teacher' ? 'преподавателям' : 'родителям';
+      res.status(200).json({
+        success: true,
+        role,
+        created,
+        total: users.length,
+        message: `Рассылка ${audience}: отправлено ${created} из ${users.length}.`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // ----- Управление группами детей -----
   static async getAvailableChildren(req, res, next) {
     try {
@@ -1839,8 +1930,13 @@ class AdminController {
       const currentCount = await ChildGroup.count({
         where: { groupId, tenantId: tid },
       });
-      if (currentCount >= group.maxStudents)
-        return res.status(400).json({ message: 'Group is full' });
+      if (currentCount >= group.maxStudents) {
+        return res.status(400).json({
+          message:
+            `В группе нет свободных мест (${currentCount} из ${group.maxStudents}). ` +
+            'Увеличьте лимит группы или выберите другую группу.',
+        });
+      }
 
       const scheduleConflict = await findChildScheduleConflict({
         tenantId: tid,

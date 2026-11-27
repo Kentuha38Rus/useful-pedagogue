@@ -7,7 +7,13 @@ class ChatService {
     return `${ids[0]}_${ids[1]}`;
   }
 
-  static async getDialogs(userId, tenantId, MessageModel, UserModel) {
+  static async getDialogs(
+    userId,
+    tenantId,
+    MessageModel,
+    UserModel,
+    role = null
+  ) {
     const uid = String(userId);
 
     const chatIds = await MessageModel.findAll({
@@ -23,13 +29,74 @@ class ChatService {
       raw: true,
     });
 
+    const chatIdList = chatIds.map((item) => item.chat_id);
+
+    // Админам дополнительно показываем общий чат автоуведомлений
+    // и чаты рассылок (у каждого получателя — свой).
+    if (role === 'admin') {
+      const autoChatId = `auto_${tenantId}`;
+      const autoMessage = await MessageModel.findOne({
+        where: { chat_id: autoChatId, tenant_id: tenantId },
+        attributes: ['id'],
+      });
+      if (autoMessage) chatIdList.push(autoChatId);
+
+      const broadcastRows = await MessageModel.findAll({
+        attributes: ['chat_id'],
+        where: {
+          tenant_id: tenantId,
+          chat_id: { [Op.like]: 'broadcast_%' },
+        },
+        group: ['chat_id'],
+        raw: true,
+      });
+      broadcastRows.forEach((row) => chatIdList.push(row.chat_id));
+    }
+
+    const seen = new Set();
     const dialogs = [];
-    for (const item of chatIds) {
-      const chatId = item.chat_id;
+
+    for (const chatId of chatIdList) {
+      if (!chatId || seen.has(chatId)) continue;
+      seen.add(chatId);
+
       const parts = String(chatId).split('_');
       if (parts.length !== 2) continue;
 
-      const otherId = parts[0] === uid ? parts[1] : parts[0];
+      let otherUser = null;
+      let unreadSenderId = null;
+
+      if (chatId === `auto_${tenantId}`) {
+        otherUser = {
+          id: 'auto',
+          name: 'Автоуведомления',
+          role: 'system',
+        };
+      } else if (String(chatId).startsWith('broadcast_')) {
+        const recipientId = String(chatId).slice('broadcast_'.length);
+        const recipient = await UserModel.findByPk(recipientId, {
+          attributes: ['id', 'name', 'role'],
+        });
+
+        otherUser =
+          role === 'admin'
+            ? {
+                id: recipientId,
+                name: `Рассылки: ${recipient?.name || 'получатель'}`,
+                role: 'broadcast',
+              }
+            : {
+                id: 'broadcast',
+                name: 'Рассылки',
+                role: 'system',
+              };
+      } else {
+        const otherId = parts[0] === uid ? parts[1] : parts[0];
+        unreadSenderId = otherId;
+        otherUser = await UserModel.findByPk(otherId, {
+          attributes: ['id', 'name', 'role'],
+        });
+      }
 
       const lastMessage = await MessageModel.findOne({
         where: { chat_id: chatId, tenant_id: tenantId },
@@ -39,18 +106,21 @@ class ChatService {
         ],
       });
 
-      const otherUser = await UserModel.findByPk(otherId, {
-        attributes: ['id', 'name', 'role'],
-      });
+      const unreadWhere = {
+        chat_id: chatId,
+        tenant_id: tenantId,
+        is_read: false,
+      };
+      if (
+        chatId === `auto_${tenantId}` ||
+        String(chatId).startsWith('broadcast_')
+      ) {
+        unreadWhere.sender_id = { [Op.ne]: uid };
+      } else if (unreadSenderId) {
+        unreadWhere.sender_id = unreadSenderId;
+      }
 
-      const unreadCount = await MessageModel.count({
-        where: {
-          chat_id: chatId,
-          tenant_id: tenantId,
-          is_read: false,
-          sender_id: otherId,
-        },
-      });
+      const unreadCount = await MessageModel.count({ where: unreadWhere });
 
       dialogs.push({
         chat_id: chatId,

@@ -49,23 +49,13 @@ export const fetchMessages = createAsyncThunk(
 
 export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
-  async ({ receiverId, content }, { getState }) => {
-    const userId = getState().auth.user?.id;
-    const socket = getSocket(userId);
-    if (!socket) throw new Error('Socket not connected');
-
-    socket.emit('send_message', {
+  async ({ receiverId, content }, { dispatch }) => {
+    const res = await api.post('/messages', {
       receiver_id: receiverId,
       content,
     });
-
-    return {
-      chat_id: [String(userId), String(receiverId)].sort().join('_'),
-      sender_id: userId,
-      content,
-      created_at: new Date().toISOString(),
-      isOwn: true,
-    };
+    dispatch(fetchDialogs());
+    return res.data;
   }
 );
 
@@ -110,12 +100,18 @@ const chatSlice = createSlice({
 
       const chatId = message.chat_id;
       const isOwn = String(message.sender_id) === String(myUserId);
+      const isAuto = String(chatId).startsWith('auto_');
+      const isBroadcast = String(chatId).startsWith('broadcast_');
 
       let dialog = state.dialogs.find((d) => d.chat_id === chatId);
       if (!dialog) {
         dialog = {
           chat_id: chatId,
-          other_user: message.sender || null,
+          other_user: isAuto
+            ? { id: 'auto', name: 'Автоуведомления', role: 'system' }
+            : isBroadcast
+            ? { id: 'broadcast', name: 'Рассылки', role: 'system' }
+            : message.sender || null,
           last_message: message,
           // Новый входящий диалог тоже должен попасть в счётчик непрочитанных
           unread_count:
@@ -129,7 +125,10 @@ const chatSlice = createSlice({
         }
       }
 
-      if (state.activeChatId === chatId) {
+      const exists = state.messages.some(
+        (m) => String(m.id) === String(message.id)
+      );
+      if (state.activeChatId === chatId && !exists) {
         state.messages.push(message);
       }
 
@@ -188,7 +187,10 @@ const chatSlice = createSlice({
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         const msg = action.payload;
-        state.messages.push({ ...msg, id: `local-${Date.now()}` });
+        if (!msg) return;
+        if (!state.messages.some((m) => String(m.id) === String(msg.id))) {
+          state.messages.push(msg);
+        }
       });
   },
 });

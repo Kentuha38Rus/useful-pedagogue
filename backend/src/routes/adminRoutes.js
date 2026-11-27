@@ -34,6 +34,9 @@ router.post('/groups', AdminController.createGroup);
 router.patch('/groups/:id', AdminController.updateGroup);
 router.delete('/groups/:id', AdminController.deleteGroup);
 
+// Чаты
+router.post('/chats/broadcast', AdminController.broadcastMessage);
+
 // Занятия: замена преподавателя на конкретную дату
 router.patch('/lessons/:id/substitute', AdminController.substituteLessonTeacher);
 

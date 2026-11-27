@@ -7,7 +7,13 @@ exports.getDialogs = async (req, res, next) => {
   try {
     const tid = requireTenant(req);
     const userId = req.user.id;
-    const dialogs = await ChatService.getDialogs(userId, tid, Message, User);
+    const dialogs = await ChatService.getDialogs(
+      userId,
+      tid,
+      Message,
+      User,
+      req.user.role
+    );
     res.json(dialogs);
   } catch (error) {
     next(error);
@@ -22,7 +28,10 @@ exports.getChatHistory = async (req, res, next) => {
     const userId = req.user.id;
 
     const parts = chatId.split('_');
-    if (!parts.includes(userId.toString())) {
+    const isAdminSpecial =
+      req.user.role === 'admin' &&
+      (chatId === `auto_${tid}` || chatId.startsWith('broadcast_'));
+    if (!parts.includes(userId.toString()) && !isAdminSpecial) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -101,7 +110,10 @@ exports.markAsRead = async (req, res, next) => {
 
     const chatId = message.chat_id;
     const parts = chatId.split('_');
-    if (!parts.includes(userId.toString())) {
+    const isAdminSpecial =
+      req.user.role === 'admin' &&
+      (chatId === `auto_${tid}` || chatId.startsWith('broadcast_'));
+    if (!parts.includes(userId.toString()) && !isAdminSpecial) {
       return res.status(403).json({ error: 'Access denied' });
     }
 

@@ -10,6 +10,8 @@ const roleLabel = (role) => {
     case 'admin': return 'админ';
     case 'teacher': return 'педагог';
     case 'parent': return 'родитель';
+    case 'system': return 'система';
+    case 'broadcast': return 'рассылка';
     default: return role || '';
   }
 };
