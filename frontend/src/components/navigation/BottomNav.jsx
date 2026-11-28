@@ -16,6 +16,7 @@ const BottomNav = () => {
       { to: '/app', label: 'Главная', icon: '🏠', end: true },
       { to: '/app/teacher/groups', label: 'Группы', icon: '👥' },
       { to: '/app/chats', label: 'Чаты', icon: '💬', badge: chatBadge },
+      { to: '/app/inventory', label: 'Имущество', icon: '📦' },
       { to: '/app/profile', label: 'Профиль', icon: '👤' },
     ];
   } else {

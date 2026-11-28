@@ -17,6 +17,7 @@ import ProfilePage from './pages/Profile/ProfilePage';
 import LoginPage from './pages/Auth/LoginPage';
 import PrivateRoute from './components/common/PrivateRoute';
 import TeacherGroupsPage from './pages/Teacher/TeacherGroupsPage';
+import InventoryPage from './pages/Inventory/InventoryPage';
 import PlatformPage from './pages/Platform/PlatformPage';
 
 import './App.scss';
@@ -124,6 +125,7 @@ function App() {
           <Route path="/app/schedule" element={<PrivateRoute><SchedulePage /></PrivateRoute>} />
           <Route path="/app/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
           <Route path="/app/teacher/groups" element={<PrivateRoute><TeacherGroupsPage /></PrivateRoute>} />
+          <Route path="/app/inventory" element={<PrivateRoute role="teacher"><InventoryPage /></PrivateRoute>} />
           <Route path="*" element={<Navigate to={isAuthenticated ? "/app" : "/login"} replace />} />
         </Routes>
       </main>

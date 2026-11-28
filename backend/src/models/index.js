@@ -14,6 +14,12 @@ const PushSubscription = require('./PushSubscription')(sequelize, Sequelize.Data
 const Notification = require('./Notification')(sequelize, Sequelize.DataTypes);
 const ChildGroup = require('./ChildGroup')(sequelize, Sequelize.DataTypes);
 const LessonResponse = require('./LessonResponse')(sequelize, Sequelize.DataTypes);
+const InventoryCategory = require('./InventoryCategory')(sequelize, Sequelize.DataTypes);
+const InventoryItem = require('./InventoryItem')(sequelize, Sequelize.DataTypes);
+const InventoryUnit = require('./InventoryUnit')(sequelize, Sequelize.DataTypes);
+const InventoryBalance = require('./InventoryBalance')(sequelize, Sequelize.DataTypes);
+const InventoryMovement = require('./InventoryMovement')(sequelize, Sequelize.DataTypes);
+const InventoryIssue = require('./InventoryIssue')(sequelize, Sequelize.DataTypes);
 
 // ---- Связь с тенантом (для всех доменных сущностей) ----
 Tenant.hasMany(User, { foreignKey: 'tenantId', as: 'users' });
@@ -101,6 +107,55 @@ LessonResponse.belongsTo(Child, { foreignKey: 'child_id', as: 'child' });
 User.hasMany(LessonResponse, { foreignKey: 'parent_id', as: 'lessonResponses' });
 LessonResponse.belongsTo(User, { foreignKey: 'parent_id', as: 'parent' });
 
+// ---- Учёт материальных ценностей ----
+Tenant.hasMany(InventoryCategory, { foreignKey: 'tenantId', as: 'inventoryCategories' });
+InventoryCategory.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(InventoryItem, { foreignKey: 'tenantId', as: 'inventoryItems' });
+InventoryItem.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(InventoryUnit, { foreignKey: 'tenantId', as: 'inventoryUnits' });
+InventoryUnit.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(InventoryBalance, { foreignKey: 'tenantId', as: 'inventoryBalances' });
+InventoryBalance.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(InventoryMovement, { foreignKey: 'tenantId', as: 'inventoryMovements' });
+InventoryMovement.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(InventoryIssue, { foreignKey: 'tenantId', as: 'inventoryIssues' });
+InventoryIssue.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+InventoryCategory.hasMany(InventoryItem, { foreignKey: 'categoryId', as: 'items' });
+InventoryItem.belongsTo(InventoryCategory, { foreignKey: 'categoryId', as: 'category' });
+
+InventoryItem.hasMany(InventoryUnit, { foreignKey: 'itemId', as: 'units' });
+InventoryUnit.belongsTo(InventoryItem, { foreignKey: 'itemId', as: 'item' });
+
+InventoryItem.hasMany(InventoryBalance, { foreignKey: 'itemId', as: 'balances' });
+InventoryBalance.belongsTo(InventoryItem, { foreignKey: 'itemId', as: 'item' });
+
+Branch.hasMany(InventoryUnit, { foreignKey: 'branchId', as: 'inventoryUnits' });
+InventoryUnit.belongsTo(Branch, { foreignKey: 'branchId', as: 'branch' });
+
+Branch.hasMany(InventoryBalance, { foreignKey: 'branchId', as: 'inventoryBalances' });
+InventoryBalance.belongsTo(Branch, { foreignKey: 'branchId', as: 'branch' });
+
+User.hasMany(InventoryUnit, { foreignKey: 'responsibleUserId', as: 'responsibleUnits' });
+InventoryUnit.belongsTo(User, { foreignKey: 'responsibleUserId', as: 'responsible' });
+
+InventoryMovement.belongsTo(InventoryItem, { foreignKey: 'itemId', as: 'item' });
+InventoryMovement.belongsTo(InventoryUnit, { foreignKey: 'unitId', as: 'unit' });
+InventoryMovement.belongsTo(Branch, { foreignKey: 'fromBranchId', as: 'fromBranch' });
+InventoryMovement.belongsTo(Branch, { foreignKey: 'toBranchId', as: 'toBranch' });
+InventoryMovement.belongsTo(User, { foreignKey: 'createdBy', as: 'author' });
+
+InventoryIssue.belongsTo(Branch, { foreignKey: 'branchId', as: 'branch' });
+InventoryIssue.belongsTo(InventoryItem, { foreignKey: 'itemId', as: 'item' });
+InventoryIssue.belongsTo(InventoryUnit, { foreignKey: 'unitId', as: 'unit' });
+InventoryIssue.belongsTo(User, { foreignKey: 'createdBy', as: 'author' });
+InventoryIssue.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolver' });
+
 const db = {
   Tenant,
   Branch,
@@ -115,6 +170,12 @@ const db = {
   Notification,
   ChildGroup,
   LessonResponse,
+  InventoryCategory,
+  InventoryItem,
+  InventoryUnit,
+  InventoryBalance,
+  InventoryMovement,
+  InventoryIssue,
 };
 
 Object.keys(db).forEach((modelName) => {

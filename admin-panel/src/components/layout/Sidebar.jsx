@@ -19,6 +19,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
     { to: '/', label: 'Дашборд' },
     { to: '/users', label: 'Пользователи' },
     { to: '/branches', label: '🏢 Филиалы' },
+    { to: '/inventory', label: '📦 Имущество' },
     { to: '/groups', label: 'Группы' },
     { to: '/courses', label: 'Курсы' },
     { to: '/payments', label: 'Платежи' },
