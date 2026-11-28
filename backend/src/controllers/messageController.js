@@ -12,7 +12,8 @@ exports.getDialogs = async (req, res, next) => {
       tid,
       Message,
       User,
-      req.user.role
+      req.user.role,
+      req.user.hiddenChats || {}
     );
     res.json(dialogs);
   } catch (error) {
@@ -35,8 +36,15 @@ exports.getChatHistory = async (req, res, next) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    const hiddenAt = req.user.hiddenChats?.[chatId] || null;
     const result = await ChatService.getChatHistory(
-      chatId, tid, Message, User, parseInt(limit), parseInt(offset)
+      chatId,
+      tid,
+      Message,
+      User,
+      parseInt(limit),
+      parseInt(offset),
+      hiddenAt
     );
     res.json({
       messages: result.rows,
@@ -44,6 +52,38 @@ exports.getChatHistory = async (req, res, next) => {
       limit: parseInt(limit),
       offset: parseInt(offset),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteChat = async (req, res, next) => {
+  try {
+    const tid = requireTenant(req);
+    const userId = req.user.id;
+    const { chatId } = req.params;
+
+    const parts = String(chatId).split('_');
+    const isAdminSpecial =
+      req.user.role === 'admin' &&
+      (chatId === `auto_${tid}` || chatId.startsWith('broadcast_'));
+    if (!parts.includes(userId.toString()) && !isAdminSpecial) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const current =
+      req.user.hiddenChats && typeof req.user.hiddenChats === 'object'
+        ? req.user.hiddenChats
+        : {};
+
+    await req.user.update({
+      hiddenChats: {
+        ...current,
+        [chatId]: new Date().toISOString(),
+      },
+    });
+
+    res.json({ success: true, chatId });
   } catch (error) {
     next(error);
   }

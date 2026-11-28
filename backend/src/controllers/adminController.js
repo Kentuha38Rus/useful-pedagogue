@@ -1056,6 +1056,113 @@ class AdminController {
     }
   }
 
+  static async updateUser(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const { id } = req.params;
+      const user = await User.findOne({ where: { id, tenantId: tid } });
+      if (!user) {
+        return res.status(404).json({ message: 'Пользователь не найден' });
+      }
+
+      const { name, username, email, phone, role, password } = req.body || {};
+      const updates = {};
+
+      if (name !== undefined) {
+        const cleanName = name === null ? '' : String(name).trim();
+        if (!cleanName) {
+          return res.status(400).json({ message: 'Имя не может быть пустым' });
+        }
+        updates.name = cleanName;
+      }
+
+      if (username !== undefined) {
+        const cleanUsername =
+          username === null ? '' : String(username).trim();
+        if (cleanUsername.length < 3 || cleanUsername.length > 50) {
+          return res.status(400).json({
+            message: 'Логин должен быть от 3 до 50 символов',
+          });
+        }
+        const conflict = await User.findOne({
+          where: {
+            id: { [Op.ne]: id },
+            [Op.or]: [
+              { username: { [Op.iLike]: cleanUsername } },
+              { email: { [Op.iLike]: cleanUsername } },
+            ],
+          },
+        });
+        if (conflict) {
+          return res.status(400).json({ message: 'Такой логин уже занят' });
+        }
+        updates.username = cleanUsername;
+      }
+
+      if (email !== undefined) {
+        const cleanEmail = String(email || '').trim().toLowerCase();
+        if (cleanEmail) {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+            return res.status(400).json({ message: 'Некорректный email' });
+          }
+          const conflict = await User.findOne({
+            where: {
+              id: { [Op.ne]: id },
+              [Op.or]: [
+                { email: { [Op.iLike]: cleanEmail } },
+                { username: { [Op.iLike]: cleanEmail } },
+              ],
+            },
+          });
+          if (conflict) {
+            return res
+              .status(400)
+              .json({ message: 'Этот email уже используется' });
+          }
+          updates.email = cleanEmail;
+        } else {
+          updates.email = null;
+        }
+      }
+
+      if (phone !== undefined) {
+        updates.phone = String(phone || '').trim() || null;
+      }
+
+      if (role !== undefined) {
+        if (!['admin', 'teacher', 'parent'].includes(role)) {
+          return res.status(400).json({ message: 'Недопустимая роль' });
+        }
+        updates.role = role;
+      }
+
+      if (
+        password !== undefined &&
+        password !== null &&
+        String(password).length > 0
+      ) {
+        updates.passwordHash = await bcrypt.hash(String(password), 10);
+      }
+
+      await user.update(updates);
+
+      const { passwordHash: _, ...userData } = user.toJSON();
+      res.status(200).json(userData);
+    } catch (error) {
+      if (error?.name === 'SequelizeUniqueConstraintError') {
+        return res
+          .status(409)
+          .json({ message: 'Логин или email уже используются' });
+      }
+      if (error?.name === 'SequelizeValidationError') {
+        return res.status(400).json({
+          message: error.errors?.[0]?.message || 'Некорректные данные',
+        });
+      }
+      next(error);
+    }
+  }
+
   static async createUser(req, res, next) {
     try {
       const tid = requireTenant(req);

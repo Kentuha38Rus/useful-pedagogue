@@ -1,41 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
-import { subscribeAdminPush } from '../../utils/push';
 import Button from '../common/Button';
+import PushToggle from './PushToggle';
 
 const Sidebar = ({ isOpen = false, onNavigate }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const unreadTotal = useSelector((state) => state.chat?.unreadTotal || 0);
-  const [pushState, setPushState] = useState({ loading: false, message: '' });
 
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
-  };
-
-  const handleEnablePush = async () => {
-    setPushState({ loading: true, message: '' });
-    try {
-      const result = await subscribeAdminPush();
-      let message = 'Уведомления включены';
-      if (!result.ok) {
-        if (result.reason === 'permission') {
-          message = 'Разрешение на уведомления не выдано';
-        } else if (result.reason === 'no-vapid-key') {
-          message = 'Не настроен ключ VAPID для push';
-        } else if (result.reason === 'unsupported') {
-          message = 'Браузер не поддерживает push';
-        } else {
-          message = 'Не удалось включить уведомления';
-        }
-      }
-      setPushState({ loading: false, message });
-    } catch (_) {
-      setPushState({ loading: false, message: 'Ошибка включения уведомлений' });
-    }
   };
 
   const navItems = [
@@ -100,28 +77,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
           </NavLink>
         ))}
       </nav>
-      <div style={{ padding: '0 20px 12px' }}>
-        <Button
-          variant="primary"
-          onClick={handleEnablePush}
-          disabled={pushState.loading}
-          style={{ width: '100%' }}
-        >
-          {pushState.loading ? 'Включаем...' : '🔔 Включить уведомления'}
-        </Button>
-        {pushState.message && (
-          <div
-            style={{
-              fontSize: 11,
-              color: '#cbd5e1',
-              marginTop: 6,
-              lineHeight: 1.3,
-            }}
-          >
-            {pushState.message}
-          </div>
-        )}
-      </div>
+      <PushToggle />
       <div style={{ padding: '20px' }}>
         <Button variant="danger" onClick={handleLogout} style={{ width: '100%' }}>
           Выйти

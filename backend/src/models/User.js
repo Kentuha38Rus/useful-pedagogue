@@ -43,6 +43,11 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 'parent',
     },
+    hiddenChats: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: {},
+    },
   }, {
     timestamps: true,
     hooks: {

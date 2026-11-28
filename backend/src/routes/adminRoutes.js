@@ -19,6 +19,7 @@ router.get('/salary', AdminController.getSalaryReport);
 router.get('/users', AdminController.getAllUsers);
 router.get('/users/:id', AdminController.getUserDetails);
 router.patch('/users/:id/role', AdminController.updateUserRole);
+router.patch('/users/:id', AdminController.updateUser);
 router.post('/users', AdminController.createUser);
 router.delete('/users/:id', AdminController.deleteUser);
 

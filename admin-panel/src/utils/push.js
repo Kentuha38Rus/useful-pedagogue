@@ -46,3 +46,37 @@ export const subscribeAdminPush = async () => {
   await api.post('/notifications/subscribe', { subscription });
   return { ok: true };
 };
+
+export const unsubscribeAdminPush = async () => {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return { ok: false, reason: 'unsupported' };
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    const endpoint = subscription ? subscription.endpoint : null;
+    if (subscription) {
+      await subscription.unsubscribe();
+    }
+    return { ok: true, endpoint };
+  } catch (err) {
+    return { ok: false, reason: err?.message || 'unsubscribe-failed' };
+  }
+};
+
+export const deleteAdminPushSubscriptionOnServer = async (endpoint) => {
+  try {
+    await api.delete('/notifications/subscribe', {
+      data: endpoint ? { endpoint } : {},
+    });
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: err?.response?.status
+        ? `http-${err.response.status}`
+        : err?.message,
+    };
+  }
+};

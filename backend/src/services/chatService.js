@@ -12,7 +12,8 @@ class ChatService {
     tenantId,
     MessageModel,
     UserModel,
-    role = null
+    role = null,
+    hiddenChats = {}
   ) {
     const uid = String(userId);
 
@@ -106,11 +107,25 @@ class ChatService {
         ],
       });
 
+      // Пользователь удалил чат у себя. Если после удаления пришло новое
+      // сообщение — чат снова показываем, но старую историю не раскрываем.
+      const hiddenAtRaw = hiddenChats?.[chatId];
+      const hiddenAt = hiddenAtRaw ? new Date(hiddenAtRaw) : null;
+      if (lastMessage && hiddenAt && !Number.isNaN(hiddenAt.getTime())) {
+        const lastAt = new Date(lastMessage.created_at);
+        if (!Number.isNaN(lastAt.getTime()) && lastAt <= hiddenAt) {
+          continue;
+        }
+      }
+
       const unreadWhere = {
         chat_id: chatId,
         tenant_id: tenantId,
         is_read: false,
       };
+      if (hiddenAt && !Number.isNaN(hiddenAt.getTime())) {
+        unreadWhere.created_at = { [Op.gt]: hiddenAt };
+      }
       if (
         chatId === `auto_${tenantId}` ||
         String(chatId).startsWith('broadcast_')
@@ -143,9 +158,22 @@ class ChatService {
     return dialogs;
   }
 
-  static async getChatHistory(chatId, tenantId, MessageModel, UserModel, limit = 50, offset = 0) {
+  static async getChatHistory(
+    chatId,
+    tenantId,
+    MessageModel,
+    UserModel,
+    limit = 50,
+    offset = 0,
+    hiddenAt = null
+  ) {
+    const where = { chat_id: chatId, tenant_id: tenantId };
+    if (hiddenAt && !Number.isNaN(new Date(hiddenAt).getTime())) {
+      where.created_at = { [Op.gt]: new Date(hiddenAt) };
+    }
+
     const result = await MessageModel.findAndCountAll({
-      where: { chat_id: chatId, tenant_id: tenantId },
+      where,
       order: [['created_at', 'DESC']],
       include: [
         { model: UserModel, as: 'sender', attributes: ['id', 'name', 'role'] },

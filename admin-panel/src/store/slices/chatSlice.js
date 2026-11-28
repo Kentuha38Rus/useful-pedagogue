@@ -59,6 +59,20 @@ export const sendMessage = createAsyncThunk(
   }
 );
 
+export const deleteChat = createAsyncThunk(
+  'chat/deleteChat',
+  async (chatId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/messages/chats/${chatId}`);
+      return chatId;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.error || 'Не удалось удалить чат'
+      );
+    }
+  }
+);
+
 export const markMessageAsRead = (messageId) => (dispatch, getState) => {
   const userId = getState().auth.user?.id;
   const socket = getSocket(userId);
@@ -191,6 +205,18 @@ const chatSlice = createSlice({
         if (!state.messages.some((m) => String(m.id) === String(msg.id))) {
           state.messages.push(msg);
         }
+      })
+      .addCase(deleteChat.fulfilled, (state, action) => {
+        const chatId = action.payload;
+        state.dialogs = state.dialogs.filter((d) => d.chat_id !== chatId);
+        if (state.activeChatId === chatId) {
+          state.activeChatId = null;
+          state.messages = [];
+        }
+        state.unreadTotal = state.dialogs.reduce(
+          (acc, d) => acc + (d.unread_count || 0),
+          0
+        );
       });
   },
 });

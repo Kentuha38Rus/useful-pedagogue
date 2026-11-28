@@ -159,6 +159,22 @@ export const deleteUser = createAsyncThunk('admin/deleteUser', async (userId) =>
   return userId;
 });
 
+export const updateUser = createAsyncThunk(
+  'admin/updateUser',
+  async ({ id, ...userData }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/admin/users/${id}`, userData);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          'Не удалось сохранить пользователя'
+      );
+    }
+  }
+);
+
 const getApiErrorMessage = (err, fallback) =>
   err.response?.data?.message || err.response?.data?.error || fallback;
 
@@ -371,6 +387,20 @@ const adminSlice = createSlice({
       .addCase(deleteUser.fulfilled, (state, action) => {
         state.users.users = state.users.users.filter(u => u.id !== action.payload);
         state.users.total -= 1;
+      })
+      .addCase(updateUser.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (!updated) return;
+        const index = state.users.users.findIndex(u => u.id === updated.id);
+        if (index !== -1) {
+          state.users.users[index] = {
+            ...state.users.users[index],
+            ...updated,
+          };
+        }
+        if (state.userDetails.user?.id === updated.id) {
+          state.userDetails.user = updated;
+        }
       })
       .addCase(fetchGroups.fulfilled, (state, action) => {
         state.groups = action.payload;

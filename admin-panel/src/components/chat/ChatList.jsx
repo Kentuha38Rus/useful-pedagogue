@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { fetchDialogs } from '../../store/slices/chatSlice';
+import { fetchDialogs, deleteChat } from '../../store/slices/chatSlice';
 import ChatComposerModal from './ChatComposerModal';
 
 const roleLabel = (role) => {
@@ -34,6 +34,28 @@ const ChatList = () => {
 
   const openChat = (chatId) => {
     navigate(`/chats/${chatId}`);
+  };
+
+  const handleDelete = (event, dialog) => {
+    event.stopPropagation();
+    if (
+      !window.confirm(
+        'Удалить чат из своей истории? У собеседника он останется.'
+      )
+    ) {
+      return;
+    }
+
+    dispatch(deleteChat(dialog.chat_id))
+      .unwrap()
+      .then(() => {
+        if (activeChatId === dialog.chat_id) navigate('/chats');
+      })
+      .catch((err) => {
+        window.alert(
+          typeof err === 'string' ? err : 'Не удалось удалить чат'
+        );
+      });
   };
 
   const openDialog = (user) => {
@@ -194,6 +216,24 @@ const ChatList = () => {
                   {dialog.unread_count}
                 </div>
               )}
+
+              <button
+                type="button"
+                title="Удалить чат"
+                onClick={(event) => handleDelete(event, dialog)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  fontSize: 20,
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  padding: '0 4px',
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
             </div>
           );
         })

@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 router.use(auth);
 
 router.get('/chats', messageController.getDialogs);
+router.delete('/chats/:chatId', messageController.deleteChat);
 router.get('/chat/:chatId', messageController.getChatHistory);
 router.post('/', messageController.sendMessage);
 router.patch('/:id/read', messageController.markAsRead);
