@@ -142,7 +142,9 @@ async function processLessonRemindersForLessons(lessons, adminId, io, tenantId, 
       return `• ${childName} — ${formatDate(lesson.date)}, ${time}${groupName}`;
     });
 
-    const chatId = ChatService.getChatId(adminId, parentId);
+    // Все напоминания о занятиях живут в чате «Рассылки» родителя,
+    // рядом с ответами «Приду / Не приду». Личный чат — только для переписки.
+    const chatId = `broadcast_${parentId}`;
 
     const pushPayload = {
       title: 'У вашего ребёнка занятия',

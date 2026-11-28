@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { fetchDialogs, deleteChat } from '../../store/slices/chatSlice';
 import Card from '../common/Card';
+import api from '../../utils/api';
 import styles from './ChatList.module.scss';
 
 const roleLabel = (role) => {
@@ -20,6 +21,9 @@ const ChatList = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { dialogs, activeChatId } = useSelector((state) => state.chat);
+  const myUserId = useSelector((state) => state.auth.user?.id);
+  const myRole = useSelector((state) => state.auth.user?.role);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     dispatch(fetchDialogs());
@@ -32,6 +36,38 @@ const ChatList = () => {
   const openChat = (chatId) => {
     navigate(`/app/chats/${chatId}`);
   };
+
+  // Родителю и педагогу — быстрый вход в личный чат с администратором.
+  const handleWriteAdmin = async () => {
+    if (starting || !myUserId) return;
+    setStarting(true);
+    try {
+      const { data } = await api.get('/users/admins');
+      const admin = Array.isArray(data) && data.length ? data[0] : null;
+      if (!admin) {
+        window.alert('В школе не найден администратор');
+        return;
+      }
+      const chatId = [String(myUserId), String(admin.id)].sort().join('_');
+      navigate(`/app/chats/${chatId}`);
+    } catch (err) {
+      window.alert('Не удалось открыть чат с администратором');
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const writeAdminButton =
+    myRole === 'admin' ? null : (
+      <button
+        type="button"
+        className={styles.writeAdmin}
+        onClick={handleWriteAdmin}
+        disabled={starting || !myUserId}
+      >
+        {starting ? 'Открываем...' : '✍️ Написать администратору'}
+      </button>
+    );
 
   const handleDelete = (event, dialog) => {
     event.stopPropagation();
@@ -58,6 +94,7 @@ const ChatList = () => {
   if (!dialogs || dialogs.length === 0) {
     return (
       <div className={styles.chatList}>
+        {writeAdminButton}
         <Card className={styles.dialogCard}>
           <div className={styles.info}>
             <div className={styles.name}>Пока нет диалогов</div>
@@ -69,6 +106,7 @@ const ChatList = () => {
 
   return (
     <div className={styles.chatList}>
+      {writeAdminButton}
       {dialogs.map((dialog) => {
         const other = dialog.other_user || {};
         const last = dialog.last_message;
@@ -99,17 +137,8 @@ const ChatList = () => {
             <button
               type="button"
               title="Удалить чат"
+              className={styles.deleteButton}
               onClick={(event) => handleDelete(event, dialog)}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                color: '#94a3b8',
-                fontSize: 20,
-                lineHeight: 1,
-                cursor: 'pointer',
-                padding: '0 4px',
-                flexShrink: 0,
-              }}
             >
               ×
             </button>

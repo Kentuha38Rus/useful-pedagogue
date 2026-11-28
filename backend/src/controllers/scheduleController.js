@@ -1,5 +1,4 @@
 const scheduleService = require('../services/scheduleService');
-const ChatService = require('../services/chatService');
 const { requireTenant } = require('../utils/helpers');
 const { sendChatPush } = require('../utils/chatPush');
 const { Lesson, Group, Child, User, LessonResponse, Message } = require('../models');
@@ -148,42 +147,54 @@ exports.respondToLessonIntent = async (req, res, next) => {
     const io = req.app.get('io');
     let adminsNotified = 0;
 
-    for (const admin of admins) {
-      try {
-        const chatId = ChatService.getChatId(req.user.id, admin.id);
+    // Ответ остаётся в чате «Рассылки» родителя — рядом с напоминанием.
+    // В личный чат он не дублируется, чтобы уведомления не расползались
+    // по разным диалогам.
+    const parentChatId = `broadcast_${req.user.id}`;
 
-        const message = await Message.create({
-          tenant_id: tid,
-          chat_id: chatId,
-          sender_id: req.user.id,
-          content,
-        });
+    try {
+      const message = await Message.create({
+        tenant_id: tid,
+        chat_id: parentChatId,
+        sender_id: req.user.id,
+        content,
+      });
 
-        const messageWithSender = await Message.findOne({
-          where: { id: message.id, tenant_id: tid },
-          include: [
-            { model: User, as: 'sender', attributes: ['id', 'name', 'role'] },
-          ],
-        });
+      const messageWithSender = await Message.findOne({
+        where: { id: message.id, tenant_id: tid },
+        include: [
+          { model: User, as: 'sender', attributes: ['id', 'name', 'role'] },
+        ],
+      });
 
-        if (io) {
-          io.to(`user:${admin.id}`).emit('new_message', messageWithSender);
-          io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
-        }
-
-        await sendChatPush({
-          io,
-          receiver: admin,
-          sender: req.user,
-          chatId,
-          content,
-          tenantId: tid,
-        });
-
-        adminsNotified += 1;
-      } catch (error) {
-        console.error('[lesson-intent] chat message error:', error.message);
+      if (io) {
+        io.to(`user:${req.user.id}`).emit('new_message', messageWithSender);
+        io.to(`chat_${parentChatId}`).emit('new_message', messageWithSender);
       }
+
+      // Админы получают уведомление и видят ответ в чате «Рассылки: имя».
+      for (const admin of admins) {
+        try {
+          if (io) {
+            io.to(`user:${admin.id}`).emit('new_message', messageWithSender);
+          }
+
+          await sendChatPush({
+            io,
+            receiver: admin,
+            sender: req.user,
+            chatId: parentChatId,
+            content,
+            tenantId: tid,
+          });
+
+          adminsNotified += 1;
+        } catch (error) {
+          console.error('[lesson-intent] admin notify error:', error.message);
+        }
+      }
+    } catch (error) {
+      console.error('[lesson-intent] chat message error:', error.message);
     }
 
     res.json({

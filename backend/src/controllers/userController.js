@@ -70,6 +70,25 @@ exports.updateMe = async (req, res, next) => {
 };
 
 /**
+ * GET /api/users/admins
+ * Администраторы школы — для кнопки «Написать администратору» в личном кабинете.
+ * Доступно любому авторизованному пользователю своего тенанта.
+ */
+exports.getAdmins = async (req, res, next) => {
+  try {
+    const tid = requireTenant(req);
+    const admins = await User.findAll({
+      where: { role: 'admin', tenantId: tid },
+      attributes: ['id', 'name'],
+      order: [['createdAt', 'ASC']],
+    });
+    res.json(admins);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/users/teachers
  * Список учителей текущего тенанта (только admin).
  * Требует tenant context — имперсонация тоже проходит (req.tenantId = target).
