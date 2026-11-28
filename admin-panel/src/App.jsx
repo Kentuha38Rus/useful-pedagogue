@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import AppRouter from './router';
 import { loadUser, forceInitialized } from './store/slices/authSlice';
 import { initSocket, fetchDialogs } from './store/slices/chatSlice';
+import { TourProvider } from './tour/TourProvider';
 import './App.css';
 
 function App() {
@@ -42,7 +43,9 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AppRouter />
+      <TourProvider>
+        <AppRouter />
+      </TourProvider>
     </BrowserRouter>
   );
 }

@@ -9,6 +9,7 @@ import GroupsPage from '../pages/Groups/GroupsPage';
 import BranchesPage from '../pages/Branches/BranchesPage';
 import InventoryPage from '../pages/Inventory/InventoryPage';
 import FinancePage from '../pages/Finance/FinancePage';
+import TrainingPage from '../pages/Training/TrainingPage';
 import CoursesPage from '../pages/Courses/CoursesPage';
 import PaymentsPage from '../pages/Payments/PaymentsPage';
 import SalaryPage from '../pages/Salary/SalaryPage';
@@ -166,6 +167,17 @@ const AppRouter = () => {
           <PrivateRoute>
             <AdminLayout>
               <SettingsPage />
+            </AdminLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/training"
+        element={
+          <PrivateRoute>
+            <AdminLayout>
+              <TrainingPage />
             </AdminLayout>
           </PrivateRoute>
         }

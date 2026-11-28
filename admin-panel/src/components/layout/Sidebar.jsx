@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
 import Button from '../common/Button';
 import PushToggle from './PushToggle';
+import TourToggle from './TourToggle';
 
 const Sidebar = ({ isOpen = false, onNavigate }) => {
   const dispatch = useDispatch();
@@ -27,6 +28,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
     { to: '/salary', label: '💰 Зарплата' },
     { to: '/chats', label: '💬 Чаты', badge: unreadTotal },
     { to: '/settings', label: '⚙️ Настройки' },
+    { to: '/training', label: '🎓 Обучение' },
   ];
 
   return (
@@ -81,6 +83,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
           </NavLink>
         ))}
       </nav>
+      <TourToggle />
       <PushToggle />
       <div style={{ padding: '20px' }}>
         <Button variant="danger" onClick={handleLogout} style={{ width: '100%' }}>
