@@ -32,6 +32,12 @@ router.get('/children/available', AdminController.getAvailableChildren);
 router.post('/groups/add-child', AdminController.addChildToGroup);
 router.delete('/groups/remove-child', AdminController.removeChildFromGroup);
 
+// Филиалы
+router.get('/branches', AdminController.getAllBranches);
+router.post('/branches', AdminController.createBranch);
+router.patch('/branches/:id', AdminController.updateBranch);
+router.delete('/branches/:id', AdminController.deleteBranch);
+
 // Группы
 router.get('/groups', AdminController.getAllGroups);
 router.get('/groups/:id', AdminController.getGroupDetails);

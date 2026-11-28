@@ -121,10 +121,60 @@ export const fetchTeachers = createAsyncThunk('admin/fetchTeachers', async () =>
   return response.data.users;
 });
 
-export const fetchGroups = createAsyncThunk('admin/fetchGroups', async () => {
-  const response = await api.get('/admin/groups');
+export const fetchGroups = createAsyncThunk('admin/fetchGroups', async (params = {}) => {
+  const response = await api.get('/admin/groups', {
+    params: params?.branchId ? { branchId: params.branchId } : undefined,
+  });
   return response.data;
 });
+
+// ----- Филиалы -----
+export const fetchBranches = createAsyncThunk('admin/fetchBranches', async () => {
+  const response = await api.get('/admin/branches');
+  return response.data;
+});
+
+export const createBranch = createAsyncThunk(
+  'admin/createBranch',
+  async (branchData, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/admin/branches', branchData);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        getApiErrorMessage(err, 'Не удалось создать филиал')
+      );
+    }
+  }
+);
+
+export const updateBranch = createAsyncThunk(
+  'admin/updateBranch',
+  async ({ id, branchData }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/admin/branches/${id}`, branchData);
+      return response.data;
+    } catch (err) {
+      return rejectWithValue(
+        getApiErrorMessage(err, 'Не удалось сохранить филиал')
+      );
+    }
+  }
+);
+
+export const deleteBranch = createAsyncThunk(
+  'admin/deleteBranch',
+  async (id, { rejectWithValue }) => {
+    try {
+      await api.delete(`/admin/branches/${id}`);
+      return id;
+    } catch (err) {
+      return rejectWithValue(
+        getApiErrorMessage(err, 'Не удалось удалить филиал')
+      );
+    }
+  }
+);
 
 export const fetchCourses = createAsyncThunk('admin/fetchCourses', async () => {
   const response = await api.get('/admin/courses');
@@ -284,6 +334,7 @@ const initialState = {
   courses: [],
   payments: [],
   availableChildren: [],
+  branches: [],
   loading: false,
   error: null,
   notify: {
@@ -401,6 +452,28 @@ const adminSlice = createSlice({
         if (state.userDetails.user?.id === updated.id) {
           state.userDetails.user = updated;
         }
+      })
+      .addCase(fetchBranches.fulfilled, (state, action) => {
+        state.branches = action.payload;
+      })
+      .addCase(createBranch.fulfilled, (state, action) => {
+        state.branches.push(action.payload);
+      })
+      .addCase(updateBranch.fulfilled, (state, action) => {
+        const index = state.branches.findIndex(
+          (branch) => branch.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.branches[index] = {
+            ...state.branches[index],
+            ...action.payload,
+          };
+        }
+      })
+      .addCase(deleteBranch.fulfilled, (state, action) => {
+        state.branches = state.branches.filter(
+          (branch) => branch.id !== action.payload
+        );
       })
       .addCase(fetchGroups.fulfilled, (state, action) => {
         state.groups = action.payload;

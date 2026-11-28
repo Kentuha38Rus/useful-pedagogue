@@ -2,6 +2,7 @@ const Sequelize = require('sequelize');
 const sequelize = require('../config/db');
 
 const Tenant = require('./Tenant')(sequelize, Sequelize.DataTypes);
+const Branch = require('./Branch')(sequelize, Sequelize.DataTypes);
 const User = require('./User')(sequelize, Sequelize.DataTypes);
 const Child = require('./Child')(sequelize, Sequelize.DataTypes);
 const Course = require('./Course')(sequelize, Sequelize.DataTypes);
@@ -26,6 +27,13 @@ Course.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
 Tenant.hasMany(Group, { foreignKey: 'tenantId', as: 'groups' });
 Group.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+// ---- Филиалы ----
+Tenant.hasMany(Branch, { foreignKey: 'tenantId', as: 'branches' });
+Branch.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Branch.hasMany(Group, { foreignKey: 'branchId', as: 'groups' });
+Group.belongsTo(Branch, { foreignKey: 'branchId', as: 'branch' });
 
 Tenant.hasMany(Lesson, { foreignKey: 'tenantId', as: 'lessons' });
 Lesson.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
@@ -95,6 +103,7 @@ LessonResponse.belongsTo(User, { foreignKey: 'parent_id', as: 'parent' });
 
 const db = {
   Tenant,
+  Branch,
   User,
   Child,
   Course,

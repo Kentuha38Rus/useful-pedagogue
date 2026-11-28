@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchGroups,
+  fetchBranches,
   createGroup,
   updateGroup,
   deleteGroup,
@@ -158,7 +159,7 @@ const GroupLessonsList = ({ lessons, groupName, courseName }) => {
 
 const GroupsPage = () => {
   const dispatch = useDispatch();
-  const { groups, courses, teachers, loading } = useSelector(
+  const { groups, courses, teachers, branches, loading } = useSelector(
     (state) => state.admin
   );
   const [showForm, setShowForm] = useState(false);
@@ -167,9 +168,11 @@ const GroupsPage = () => {
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [formError, setFormError] = useState('');
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [branchFilter, setBranchFilter] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
+    branchId: '',
     courseId: '',
     teacherId: '',
     maxStudents: '',
@@ -177,10 +180,14 @@ const GroupsPage = () => {
   });
 
   useEffect(() => {
-    dispatch(fetchGroups());
+    dispatch(fetchBranches());
     dispatch(fetchCourses());
     dispatch(fetchTeachers());
   }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchGroups({ branchId: branchFilter || undefined }));
+  }, [dispatch, branchFilter]);
 
   const parseScheduleFromGroup = (raw) => {
     const result = emptySchedule();
@@ -223,6 +230,7 @@ const GroupsPage = () => {
     setFormError('');
     setFormData({
       name: group.name || '',
+      branchId: group.branchId || '',
       courseId: group.courseId || '',
       teacherId: group.teacherId || '',
       maxStudents: group.maxStudents ?? '',
@@ -237,6 +245,7 @@ const GroupsPage = () => {
     setFormError('');
     setFormData({
       name: '',
+      branchId: '',
       courseId: '',
       teacherId: '',
       maxStudents: '',
@@ -247,10 +256,17 @@ const GroupsPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+
+    if (!formData.branchId) {
+      setFormError('Выберите филиал');
+      return;
+    }
+
     const maxStudents =
       formData.maxStudents === '' ? undefined : Number(formData.maxStudents);
     const payload = {
       name: formData.name,
+      branchId: formData.branchId,
       courseId: formData.courseId,
       teacherId: formData.teacherId,
       maxStudents,
@@ -265,7 +281,7 @@ const GroupsPage = () => {
         await dispatch(createGroup(payload)).unwrap();
       }
       closeForm();
-      dispatch(fetchGroups());
+      dispatch(fetchGroups({ branchId: branchFilter || undefined }));
     } catch (error) {
       console.error('Ошибка сохранения группы:', error);
       setFormError(
@@ -286,7 +302,7 @@ const GroupsPage = () => {
   };
 
   const handleChildAdded = () => {
-    dispatch(fetchGroups());
+    dispatch(fetchGroups({ branchId: branchFilter || undefined }));
   };
 
   const handleRemoveChild = async (groupId, child) => {
@@ -297,7 +313,7 @@ const GroupsPage = () => {
     if (!window.confirm(`Удалить ребёнка «${childName}» из группы?`)) return;
     try {
       await dispatch(removeChildFromGroup({ childId: child.id, groupId })).unwrap();
-      dispatch(fetchGroups());
+      dispatch(fetchGroups({ branchId: branchFilter || undefined }));
     } catch (err) {
       alert(
         typeof err === 'string'
@@ -349,6 +365,7 @@ const GroupsPage = () => {
               setFormError('');
               setFormData({
                 name: '',
+                branchId: branchFilter || branches[0]?.id || '',
                 courseId: '',
                 teacherId: '',
                 maxStudents: '',
@@ -392,6 +409,20 @@ const GroupsPage = () => {
               }
               required
             />
+
+            <select
+              value={formData.branchId}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, branchId: e.target.value }))
+              }
+              required
+              style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+            >
+              <option value="">Выберите филиал</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
 
             <select
               value={formData.courseId}
@@ -511,7 +542,35 @@ const GroupsPage = () => {
       {loading ? (
         <div>Загрузка...</div>
       ) : (
-        <div style={{ display: 'grid', gap: '15px' }}>
+        <>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              marginBottom: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontSize: 13, color: '#64748b' }}>Филиал:</span>
+            <select
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 8,
+                border: '1px solid #cbd5e1',
+                background: '#fff',
+              }}
+            >
+              <option value="">Все филиалы</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'grid', gap: '15px' }}>
           {groups.map((group) => {
             const isExpanded = Boolean(expandedGroups[group.id]);
             return (
@@ -540,6 +599,16 @@ const GroupsPage = () => {
                       style={{ display: 'block', fontWeight: 600, fontSize: 15 }}
                     >
                       {group.name}
+                    </span>
+                    <span
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        color: '#2563eb',
+                        marginTop: 2,
+                      }}
+                    >
+                      🏢 {group.branch?.name || 'Филиал не указан'}
                     </span>
                     <span
                       style={{
@@ -652,7 +721,8 @@ const GroupsPage = () => {
               </Card>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       <AddChildModal

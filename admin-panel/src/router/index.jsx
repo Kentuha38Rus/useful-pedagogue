@@ -6,6 +6,7 @@ import LoginPage from '../pages/Login/LoginPage';
 import DashboardPage from '../pages/Dashboard/DashboardPage';
 import UsersPage from '../pages/Users/UsersPage';
 import GroupsPage from '../pages/Groups/GroupsPage';
+import BranchesPage from '../pages/Branches/BranchesPage';
 import CoursesPage from '../pages/Courses/CoursesPage';
 import PaymentsPage from '../pages/Payments/PaymentsPage';
 import SalaryPage from '../pages/Salary/SalaryPage';
@@ -53,6 +54,17 @@ const AppRouter = () => {
           <PrivateRoute>
             <AdminLayout>
               <UsersPage />
+            </AdminLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/branches"
+        element={
+          <PrivateRoute>
+            <AdminLayout>
+              <BranchesPage />
             </AdminLayout>
           </PrivateRoute>
         }

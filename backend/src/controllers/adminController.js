@@ -2,6 +2,7 @@ const {
   User,
   Child,
   Group,
+  Branch,
   Course,
   Lesson,
   Attendance,
@@ -136,12 +137,29 @@ const validateScheduleSlots = (schedule) => {
   return null;
 };
 
-const findGroupNameConflict = (tenantId, name, excludeGroupId) => {
+const findGroupNameConflict = (tenantId, name, excludeGroupId, branchId = null) => {
   const trimmed = String(name || '').trim();
   if (!trimmed) return Promise.resolve(null);
   const where = { tenantId, name: { [Op.iLike]: trimmed } };
+  // Названия групп уникальны внутри филиала (в разных филиалах можно повторять).
+  if (branchId) where.branchId = branchId;
   if (excludeGroupId) where.id = { [Op.ne]: excludeGroupId };
   return Group.findOne({ where, attributes: ['id', 'name'] });
+};
+
+/**
+ * Филиал для группы: проверяет, что он принадлежит центру.
+ * Если branchId не передан — берёт первый филиал центра
+ * (совместимость со старыми запросами).
+ */
+const resolveBranchForGroup = async (tenantId, branchId) => {
+  if (branchId) {
+    return Branch.findOne({ where: { id: branchId, tenantId } });
+  }
+  return Branch.findOne({
+    where: { tenantId },
+    order: [['createdAt', 'ASC']],
+  });
 };
 
 const findTeacherScheduleConflict = async ({
@@ -289,7 +307,7 @@ class AdminController {
   static async getStats(req, res, next) {
     try {
       const tid = requireTenant(req);
-      const { date } = req.query;
+      const { date, branchId } = req.query;
       // «Сегодня» и статусы считаем в поясе центра, а не по часам сервера.
       const timezone = await getTenantTimezone(tid);
       const nowZoned = getZonedNow(timezone);
@@ -359,9 +377,10 @@ class AdminController {
           order: [['name', 'ASC']],
         }),
         Group.findAll({
-          where: { tenantId: tid },
+          where: branchId ? { tenantId: tid, branchId } : { tenantId: tid },
           attributes: ['id', 'name', 'maxStudents'],
           include: [
+            { model: Branch, as: 'branch', attributes: ['id', 'name'] },
             { model: User, as: 'teacher', attributes: ['id', 'name'] },
             { model: Course, as: 'course', attributes: ['id', 'name'] },
             {
@@ -385,8 +404,11 @@ class AdminController {
             {
               model: Group,
               as: 'group',
-              attributes: ['id', 'name'],
+              attributes: ['id', 'name', 'branchId'],
+              required: Boolean(branchId),
+              where: branchId ? { branchId } : undefined,
               include: [
+                { model: Branch, as: 'branch', attributes: ['id', 'name'] },
                 { model: User, as: 'teacher', attributes: ['id', 'name'] },
                 { model: Course, as: 'course', attributes: ['id', 'name'] },
                 {
@@ -450,6 +472,8 @@ class AdminController {
           topic: l.topic,
           groupId: group ? group.id : null,
           groupName: group ? group.name : null,
+          branchId: group ? group.branchId : null,
+          branchName: group && group.branch ? group.branch.name : null,
           teacherName: teacher ? teacher.name : null,
           substituteTeacherName: l.substituteTeacher
             ? l.substituteTeacher.name
@@ -487,6 +511,7 @@ class AdminController {
           groups: groupsList.map((g) => ({
             id: g.id,
             name: g.name,
+            branchName: g.branch ? g.branch.name : null,
             teacherName: g.teacher ? g.teacher.name : null,
             courseName: g.course ? g.course.name : null,
             childrenCount: (g.children || []).length,
@@ -1311,9 +1336,14 @@ class AdminController {
   static async getAllGroups(req, res, next) {
     try {
       const tid = requireTenant(req);
+      const { branchId } = req.query;
+      const where = { tenantId: tid };
+      if (branchId) where.branchId = branchId;
+
       const groups = await Group.findAll({
-        where: { tenantId: tid },
+        where,
         include: [
+          { model: Branch, as: 'branch', attributes: ['id', 'name'] },
           { model: User, as: 'teacher', attributes: ['id', 'name', 'email'] },
           { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
           {
@@ -1346,6 +1376,11 @@ class AdminController {
       const group = await Group.findOne({
         where: { id, tenantId: tid },
         include: [
+          {
+            model: Branch,
+            as: 'branch',
+            attributes: ['id', 'name', 'address', 'phone'],
+          },
           { model: User, as: 'teacher', attributes: ['id', 'name', 'email', 'phone'] },
           { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
           {
@@ -1478,7 +1513,7 @@ class AdminController {
   static async createGroup(req, res, next) {
     try {
       const tid = requireTenant(req);
-      const { courseId, teacherId, name, schedule, maxStudents, lessons } = req.body;
+      const { courseId, teacherId, name, schedule, maxStudents, lessons, branchId } = req.body;
 
       const course = await Course.findOne({ where: { id: courseId, tenantId: tid } });
       if (!course) return res.status(400).json({ message: 'Course not found' });
@@ -1486,15 +1521,24 @@ class AdminController {
       if (!teacher || teacher.role !== 'teacher')
         return res.status(400).json({ message: 'Invalid teacher' });
 
+      const branch = await resolveBranchForGroup(tid, branchId);
+      if (!branch) {
+        return res.status(400).json({
+          message: branchId
+            ? 'Филиал не найден'
+            : 'Сначала создайте филиал в разделе «Филиалы»',
+        });
+      }
+
       const groupName = String(name || '').trim();
       if (!groupName) {
         return res.status(400).json({ message: 'Укажите название группы' });
       }
 
-      const nameConflict = await findGroupNameConflict(tid, groupName);
+      const nameConflict = await findGroupNameConflict(tid, groupName, null, branch.id);
       if (nameConflict) {
         return res.status(409).json({
-          message: `Группа с названием «${groupName}» уже существует`,
+          message: `Группа с названием «${groupName}» уже есть в филиале «${branch.name}»`,
         });
       }
 
@@ -1538,6 +1582,7 @@ class AdminController {
 
       const group = await Group.create({
         tenantId: tid,
+        branchId: branch.id,
         courseId,
         teacherId,
         name: groupName,
@@ -1571,6 +1616,7 @@ class AdminController {
         include: [
           { model: User, as: 'teacher', attributes: ['id', 'name', 'email'] },
           { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
+          { model: Branch, as: 'branch', attributes: ['id', 'name'] },
           { model: Child, as: 'children', through: { attributes: [] } },
           {
             model: Lesson,
@@ -1593,7 +1639,20 @@ class AdminController {
       const group = await Group.findOne({ where: { id, tenantId: tid } });
       if (!group) return res.status(404).json({ message: 'Group not found' });
 
-      const { courseId, teacherId, name, schedule, maxStudents, lessons } = req.body;
+      const { courseId, teacherId, name, schedule, maxStudents, lessons, branchId } = req.body;
+
+      let nextBranch = null;
+      if (branchId) {
+        nextBranch = await Branch.findOne({ where: { id: branchId, tenantId: tid } });
+        if (!nextBranch) {
+          return res.status(400).json({ message: 'Филиал не найден' });
+        }
+      } else if (group.branchId) {
+        nextBranch = await Branch.findOne({
+          where: { id: group.branchId, tenantId: tid },
+        });
+      }
+      const nextBranchId = nextBranch ? nextBranch.id : group.branchId;
 
       if (courseId) {
         const course = await Course.findOne({ where: { id: courseId, tenantId: tid } });
@@ -1610,10 +1669,17 @@ class AdminController {
         return res.status(400).json({ message: 'Укажите название группы' });
       }
 
-      const nameConflict = await findGroupNameConflict(tid, nextName, group.id);
+      const nameConflict = await findGroupNameConflict(
+        tid,
+        nextName,
+        group.id,
+        nextBranchId
+      );
       if (nameConflict) {
         return res.status(409).json({
-          message: `Группа с названием «${nextName}» уже существует`,
+          message: nextBranch
+            ? `Группа с названием «${nextName}» уже есть в филиале «${nextBranch.name}»`
+            : `Группа с названием «${nextName}» уже существует`,
         });
       }
 
@@ -1711,6 +1777,7 @@ class AdminController {
       }
 
       await group.update({
+        branchId: nextBranchId,
         courseId: courseId || group.courseId,
         teacherId: nextTeacherId,
         name: nextName,
@@ -1744,6 +1811,7 @@ class AdminController {
         include: [
           { model: User, as: 'teacher', attributes: ['id', 'name', 'email'] },
           { model: Course, as: 'course', attributes: ['id', 'name', 'price'] },
+          { model: Branch, as: 'branch', attributes: ['id', 'name'] },
           { model: Child, as: 'children', through: { attributes: [] } },
           {
             model: Lesson,
@@ -2053,6 +2121,146 @@ class AdminController {
         total: users.length,
         message: `Рассылка ${audience}: отправлено ${created} из ${users.length}.`,
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ----- Филиалы -----
+  static async getAllBranches(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const branches = await Branch.findAll({
+        where: { tenantId: tid },
+        attributes: ['id', 'name', 'address', 'phone', 'isActive', 'createdAt'],
+        order: [['createdAt', 'ASC']],
+      });
+
+      const counts = await Group.findAll({
+        where: { tenantId: tid },
+        attributes: [
+          'branchId',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'cnt'],
+        ],
+        group: ['branchId'],
+        raw: true,
+      });
+      const countMap = new Map(
+        counts.map((row) => [row.branchId, Number(row.cnt)])
+      );
+
+      res.status(200).json(
+        branches.map((branch) => ({
+          ...branch.toJSON(),
+          groupsCount: countMap.get(branch.id) || 0,
+        }))
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async createBranch(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const { name, address, phone } = req.body || {};
+      const branchName = String(name || '').trim();
+      if (!branchName) {
+        return res.status(400).json({ message: 'Укажите название филиала' });
+      }
+
+      const existing = await Branch.findOne({
+        where: { tenantId: tid, name: { [Op.iLike]: branchName } },
+      });
+      if (existing) {
+        return res.status(409).json({ message: 'Филиал с таким названием уже есть' });
+      }
+
+      const branch = await Branch.create({
+        tenantId: tid,
+        name: branchName,
+        address: address ? String(address).trim() : null,
+        phone: phone ? String(phone).trim() : null,
+        isActive: true,
+      });
+
+      res.status(201).json({ ...branch.toJSON(), groupsCount: 0 });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateBranch(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const { id } = req.params;
+      const branch = await Branch.findOne({ where: { id, tenantId: tid } });
+      if (!branch) return res.status(404).json({ message: 'Филиал не найден' });
+
+      const { name, address, phone, isActive } = req.body || {};
+
+      if (name !== undefined) {
+        const nextName = String(name || '').trim();
+        if (!nextName) {
+          return res.status(400).json({ message: 'Укажите название филиала' });
+        }
+        const conflict = await Branch.findOne({
+          where: {
+            tenantId: tid,
+            name: { [Op.iLike]: nextName },
+            id: { [Op.ne]: id },
+          },
+        });
+        if (conflict) {
+          return res.status(409).json({ message: 'Филиал с таким названием уже есть' });
+        }
+        branch.name = nextName;
+      }
+
+      if (address !== undefined) {
+        branch.address = address ? String(address).trim() : null;
+      }
+      if (phone !== undefined) {
+        branch.phone = phone ? String(phone).trim() : null;
+      }
+      if (isActive !== undefined) {
+        branch.isActive = Boolean(isActive);
+      }
+
+      await branch.save();
+      res.status(200).json(branch);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteBranch(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const { id } = req.params;
+      const branch = await Branch.findOne({ where: { id, tenantId: tid } });
+      if (!branch) return res.status(404).json({ message: 'Филиал не найден' });
+
+      const groupsCount = await Group.count({
+        where: { tenantId: tid, branchId: id },
+      });
+      if (groupsCount > 0) {
+        return res.status(409).json({
+          message:
+            `В филиале «${branch.name}» ${groupsCount} групп. ` +
+            'Сначала перенесите их в другой филиал.',
+        });
+      }
+
+      const total = await Branch.count({ where: { tenantId: tid } });
+      if (total <= 1) {
+        return res.status(409).json({
+          message: 'В центре должен остаться хотя бы один филиал',
+        });
+      }
+
+      await branch.destroy();
+      res.status(200).json({ success: true, id });
     } catch (error) {
       next(error);
     }

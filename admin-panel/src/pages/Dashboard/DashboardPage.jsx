@@ -312,6 +312,7 @@ const DashboardPage = () => {
         title: g.name || 'Без названия',
         subtitle:
           [
+            g.branchName ? `Филиал: ${g.branchName}` : null,
             g.courseName ? `Курс: ${g.courseName}` : null,
             g.teacherName ? `Учитель: ${g.teacherName}` : null,
             `Учеников: ${g.childrenCount ?? 0}/${g.maxStudents ?? 0}`,
@@ -678,6 +679,7 @@ const DashboardPage = () => {
                                   </div>
                                   <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>
                                     {[
+                                      l.branchName ? `🏢 ${l.branchName}` : null,
                                       l.courseName,
                                       l.teacherName
                                         ? `${l.isSubstituted ? 'Замена' : 'Учитель'}: ${

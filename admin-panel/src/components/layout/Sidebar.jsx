@@ -18,6 +18,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
   const navItems = [
     { to: '/', label: 'Дашборд' },
     { to: '/users', label: 'Пользователи' },
+    { to: '/branches', label: '🏢 Филиалы' },
     { to: '/groups', label: 'Группы' },
     { to: '/courses', label: 'Курсы' },
     { to: '/payments', label: 'Платежи' },

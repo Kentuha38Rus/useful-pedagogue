@@ -11,6 +11,11 @@ module.exports = (sequelize) => {
       type: DataTypes.UUID,
       allowNull: false,
     },
+    // Филиал центра. Необязателен для старых записей — миграция заполняет его.
+    branchId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
