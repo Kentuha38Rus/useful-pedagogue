@@ -162,6 +162,7 @@ const UnitFormModal = ({ unit, items, branches, users, onClose, onSaved }) => {
     supplier: unit?.supplier || '',
     warrantyUntil: unit?.warrantyUntil || '',
     note: unit?.note || '',
+    asExpense: false,
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -320,6 +321,17 @@ const UnitFormModal = ({ unit, items, branches, users, onClose, onSaved }) => {
       <Field label="Примечание">
         <Input value={form.note} onChange={(e) => set('note', e.target.value)} />
       </Field>
+
+      {!isEdit && (
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
+          <input
+            type="checkbox"
+            checked={form.asExpense}
+            onChange={(e) => set('asExpense', e.target.checked)}
+          />
+          Учесть покупку как расход в финансах
+        </label>
+      )}
     </Modal>
   );
 };
@@ -482,6 +494,7 @@ const BalanceReceiptModal = ({ items, branches, onClose, onSaved }) => {
     quantity: '',
     price: '',
     comment: '',
+    asExpense: false,
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -560,6 +573,14 @@ const BalanceReceiptModal = ({ items, branches, onClose, onSaved }) => {
       <Field label="Комментарий">
         <Input value={form.comment} onChange={(e) => set('comment', e.target.value)} />
       </Field>
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
+        <input
+          type="checkbox"
+          checked={form.asExpense}
+          onChange={(e) => set('asExpense', e.target.checked)}
+        />
+        Учесть закупку как расход в финансах
+      </label>
     </Modal>
   );
 };

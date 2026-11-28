@@ -100,6 +100,7 @@ app.use('/api/schedule', scheduleRoutes);
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin/inventory', require('./routes/adminInventoryRoutes'));
+app.use('/api/admin/finance', require('./routes/adminFinanceRoutes'));
 app.use('/api/inventory', require('./routes/inventoryRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/platform', platformRoutes);   // ← NEW

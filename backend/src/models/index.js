@@ -20,6 +20,10 @@ const InventoryUnit = require('./InventoryUnit')(sequelize, Sequelize.DataTypes)
 const InventoryBalance = require('./InventoryBalance')(sequelize, Sequelize.DataTypes);
 const InventoryMovement = require('./InventoryMovement')(sequelize, Sequelize.DataTypes);
 const InventoryIssue = require('./InventoryIssue')(sequelize, Sequelize.DataTypes);
+const FinanceCategory = require('./FinanceCategory')(sequelize, Sequelize.DataTypes);
+const FinanceTransaction = require('./FinanceTransaction')(sequelize, Sequelize.DataTypes);
+const FinanceCharge = require('./FinanceCharge')(sequelize, Sequelize.DataTypes);
+const FinancePayment = require('./FinancePayment')(sequelize, Sequelize.DataTypes);
 
 // ---- Связь с тенантом (для всех доменных сущностей) ----
 Tenant.hasMany(User, { foreignKey: 'tenantId', as: 'users' });
@@ -156,6 +160,29 @@ InventoryIssue.belongsTo(InventoryUnit, { foreignKey: 'unitId', as: 'unit' });
 InventoryIssue.belongsTo(User, { foreignKey: 'createdBy', as: 'author' });
 InventoryIssue.belongsTo(User, { foreignKey: 'resolvedBy', as: 'resolver' });
 
+// ---- Финансы ----
+Tenant.hasMany(FinanceCategory, { foreignKey: 'tenantId', as: 'financeCategories' });
+FinanceCategory.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(FinanceTransaction, { foreignKey: 'tenantId', as: 'financeTransactions' });
+FinanceTransaction.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+FinanceTransaction.belongsTo(FinanceCategory, { foreignKey: 'categoryId', as: 'category' });
+FinanceTransaction.belongsTo(Branch, { foreignKey: 'branchId', as: 'branch' });
+FinanceTransaction.belongsTo(User, { foreignKey: 'createdBy', as: 'author' });
+
+Tenant.hasMany(FinanceCharge, { foreignKey: 'tenantId', as: 'financeCharges' });
+FinanceCharge.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+FinanceCharge.belongsTo(Child, { foreignKey: 'childId', as: 'child' });
+FinanceCharge.belongsTo(Group, { foreignKey: 'groupId', as: 'group' });
+FinanceCharge.belongsTo(Branch, { foreignKey: 'branchId', as: 'branch' });
+
+Tenant.hasMany(FinancePayment, { foreignKey: 'tenantId', as: 'financePayments' });
+FinancePayment.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+FinancePayment.belongsTo(Child, { foreignKey: 'childId', as: 'child' });
+FinancePayment.belongsTo(Branch, { foreignKey: 'branchId', as: 'branch' });
+FinancePayment.belongsTo(FinanceCharge, { foreignKey: 'chargeId', as: 'charge' });
+FinancePayment.belongsTo(FinanceTransaction, { foreignKey: 'transactionId', as: 'transaction' });
+
 const db = {
   Tenant,
   Branch,
@@ -176,6 +203,10 @@ const db = {
   InventoryBalance,
   InventoryMovement,
   InventoryIssue,
+  FinanceCategory,
+  FinanceTransaction,
+  FinanceCharge,
+  FinancePayment,
 };
 
 Object.keys(db).forEach((modelName) => {

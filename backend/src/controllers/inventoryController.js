@@ -12,6 +12,7 @@ const {
   User,
 } = require('../models');
 const { requireTenant } = require('../utils/helpers');
+const { createInventoryExpense } = require('../services/financeService');
 
 // ---------- Вспомогательные ----------
 const toNumber = (value, fallback = 0) => {
@@ -398,6 +399,7 @@ exports.createUnit = async (req, res, next) => {
       supplier,
       warrantyUntil,
       note,
+      asExpense,
     } = req.body || {};
 
     const item = await ensureItem(tid, itemId);
@@ -439,7 +441,7 @@ exports.createUnit = async (req, res, next) => {
       note: note ? String(note).trim() : null,
     });
 
-    await InventoryMovement.create({
+    const movement = await InventoryMovement.create({
       tenantId: tid,
       kind: 'receipt',
       itemId: item.id,
@@ -451,6 +453,18 @@ exports.createUnit = async (req, res, next) => {
       createdBy: req.user.id,
       comment: 'Приход оборудования',
     });
+
+    if (asExpense) {
+      await createInventoryExpense({
+        tenantId: tid,
+        branchId: unit.branchId,
+        amount: unit.price,
+        occurredAt: unit.purchaseDate,
+        comment: `Приход: ${item.name} (${unit.inventoryNumber})`,
+        sourceId: movement.id,
+        createdBy: req.user.id,
+      });
+    }
 
     const created = await InventoryUnit.findByPk(unit.id, { include: unitInclude });
     res.status(201).json(created);
@@ -659,7 +673,8 @@ exports.getBalances = async (req, res, next) => {
 exports.receiptBalance = async (req, res, next) => {
   try {
     const tid = requireTenant(req);
-    const { itemId, branchId, quantity, price, documentNumber, comment } = req.body || {};
+    const { itemId, branchId, quantity, price, documentNumber, comment, asExpense } =
+      req.body || {};
 
     const item = await ensureItem(tid, itemId);
     if (!item) return res.status(400).json({ message: 'Позиция не найдена' });
@@ -682,18 +697,34 @@ exports.receiptBalance = async (req, res, next) => {
       await item.update({ price: toMoney(price) });
     }
 
-    await InventoryMovement.create({
+    const unitPrice =
+      price === undefined || price === null || price === ''
+        ? toMoney(item.price)
+        : toMoney(price);
+
+    const movement = await InventoryMovement.create({
       tenantId: tid,
       kind: 'receipt',
       itemId: item.id,
       quantity: amount,
       toBranchId: branch.id,
-      price: price === undefined || price === null || price === '' ? item.price : toMoney(price),
+      price: unitPrice,
       documentNumber: documentNumber ? String(documentNumber).trim() : null,
       occurredAt: new Date(),
       comment: comment ? String(comment).trim() : null,
       createdBy: req.user.id,
     });
+
+    if (asExpense) {
+      await createInventoryExpense({
+        tenantId: tid,
+        branchId: branch.id,
+        amount: amount * unitPrice,
+        comment: `Приход расходников: ${item.name}`,
+        sourceId: movement.id,
+        createdBy: req.user.id,
+      });
+    }
 
     res.status(201).json(await InventoryBalance.findByPk(balance.id, { include: balanceInclude }));
   } catch (error) {

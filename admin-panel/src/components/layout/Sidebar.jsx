@@ -20,6 +20,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
     { to: '/users', label: 'Пользователи' },
     { to: '/branches', label: '🏢 Филиалы' },
     { to: '/inventory', label: '📦 Имущество' },
+    { to: '/finance', label: '💰 Финансы' },
     { to: '/groups', label: 'Группы' },
     { to: '/courses', label: 'Курсы' },
     { to: '/payments', label: 'Платежи' },
