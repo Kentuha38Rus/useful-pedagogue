@@ -14,6 +14,7 @@ const {
 const notificationService = require('../services/notificationService');
 const ChatService = require('../services/chatService');
 const { requireTenant } = require('../utils/helpers');
+const { getTenantTimezone, getZonedNow } = require('../utils/timezone');
 
 const LESSON_NOTIFY_COOLDOWN_MS = 60 * 1000;
 
@@ -568,7 +569,9 @@ exports.sendLessonRemindersForToday = async (req, res, next) => {
 
     const adminId = req.user.id;
     const io = req.app.get('io');
-    const dateStr = req.body.date || new Date().toISOString().slice(0, 10);
+    // «Сегодня» — по поясу центра, а не по часам сервера (он в UTC).
+    const timezone = await getTenantTimezone(tid);
+    const dateStr = req.body.date || getZonedNow(timezone).date;
 
     const lessons = await Lesson.findAll({
       where: { tenantId: tid, date: dateStr },

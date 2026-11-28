@@ -9,6 +9,10 @@ router.use(roleCheck('admin'));
 // Статистика
 router.get('/stats', AdminController.getStats);
 
+// Настройки центра (часовой пояс и пр.)
+router.get('/settings', AdminController.getSettings);
+router.patch('/settings', AdminController.updateSettings);
+
 // Уведомления по сегодняшним занятиям (web-push + socket)
 router.post('/lessons/notify-today', AdminController.notifyTodayLessons);
 

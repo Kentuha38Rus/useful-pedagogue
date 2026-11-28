@@ -1,12 +1,19 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
 const {
-  Lesson, Group, Child, User, PushSubscription, LessonResponse, Message,
+  Lesson, Group, Child, User, PushSubscription, LessonResponse, Message, Tenant,
 } = require('../models');
 const notificationService = require('../services/notificationService');
-const { withLock } = require('../utils/distributedLock');
+const { withLock, acquireLock } = require('../utils/distributedLock');
+const {
+  normalizeTimeZone,
+  getZonedWindow,
+} = require('../utils/timezone');
 
 const TIMEOUT_MINUTES = 10;
+const REMINDER_MINUTES_AHEAD = 60;
+// Лок живёт дольше, чем окно напоминания: одно занятие — один push преподавателю.
+const TEACHER_PUSH_LOCK_TTL_SEC = 6 * 60 * 60;
 
 function formatTime(t) {
   return t ? String(t).slice(0, 5) : '';
@@ -19,75 +26,133 @@ function formatDate(dateStr) {
   return d && m && y ? `${d}.${m}.${y}` : s;
 }
 
+function childFullName(child) {
+  return [child?.surname, child?.name].filter(Boolean).join(' ') || child?.name || 'Ребёнок';
+}
+
+function lessonTimeRange(lesson) {
+  return `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
+}
+
+/**
+ * Автонапоминания «за час» и проверка «нет ответа».
+ *
+ * Время занятия в БД «настенное» (по часам центра), поэтому окно
+ * считается в поясе каждого центра: у школ могут быть разные пояса.
+ */
 module.exports = (io) => {
   // ---------- 1. Автонапоминания за час ----------
-  cron.schedule('0 * * * *', withLock('cron:auto-reminder', 3000, async () => {
-    console.log('[cron] Running auto-reminder job...');
+  // Каждые 5 минут: окно [сейчас; сейчас + 60 мин] в поясе центра.
+  // Повторы исключены: на каждого ребёнка создаётся одна запись ответа,
+  // а push преподавателю закрывается локом в Redis.
+  cron.schedule('*/5 * * * *', withLock('cron:auto-reminder', 240, async () => {
+    const now = new Date();
+
+    let tenants = [];
     try {
-      const now = new Date();
-      const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+      tenants = await Tenant.findAll({ attributes: ['id', 'settings', 'status'] });
+    } catch (error) {
+      console.error('[cron] auto-reminder: tenants query failed:', error.message);
+      return;
+    }
 
-      const todayStr = now.toISOString().slice(0, 10);
-      const startTimeStr = now.toTimeString().slice(0, 8);
-      const endTimeStr = oneHourLater.toTimeString().slice(0, 8);
+    let sentLessons = 0;
 
-      const lessons = await Lesson.findAll({
-        where: {
-          date: todayStr,
-          startTime: { [Op.between]: [startTimeStr, endTimeStr] },
-          is_cancelled: false,
-        },
-        include: [
-          {
-            model: Group,
-            as: 'group',
-            include: [
-              { model: User, as: 'teacher' },
-              {
-                model: Child,
-                as: 'children',
-                include: [{ model: User, as: 'parent' }],
-              },
-            ],
+    for (const tenant of tenants) {
+      if (tenant.status !== 'active' && tenant.status !== 'trial') continue;
+
+      const tz = normalizeTimeZone(tenant.settings && tenant.settings.timezone);
+      const ranges = getZonedWindow(tz, REMINDER_MINUTES_AHEAD, now);
+
+      let lessons = [];
+      try {
+        lessons = await Lesson.findAll({
+          where: {
+            tenantId: tenant.id,
+            is_cancelled: false,
+            [Op.or]: ranges.map((range) => ({
+              date: range.date,
+              startTime: { [Op.gte]: range.from, [Op.lte]: range.to },
+            })),
           },
-        ],
-      });
+          include: [
+            {
+              model: Group,
+              as: 'group',
+              include: [
+                { model: User, as: 'teacher' },
+                {
+                  model: Child,
+                  as: 'children',
+                  include: [{ model: User, as: 'parent' }],
+                },
+              ],
+            },
+            { model: User, as: 'substituteTeacher' },
+          ],
+        });
+      } catch (error) {
+        console.error(
+          `[cron] auto-reminder: lessons query failed for tenant ${tenant.id}:`,
+          error.message
+        );
+        continue;
+      }
 
-      if (!lessons.length) return;
+      if (!lessons.length) continue;
+
+      // Отправитель сводного сообщения в «Рассылки» — администратор центра.
+      let tenantAdminId = null;
+      try {
+        const tenantAdmin = await User.findOne({
+          where: { tenantId: tenant.id, role: 'admin' },
+          attributes: ['id'],
+          order: [['createdAt', 'ASC']],
+        });
+        tenantAdminId = tenantAdmin ? tenantAdmin.id : null;
+      } catch (error) {
+        console.error(
+          `[cron] admin lookup failed for tenant ${tenant.id}:`,
+          error.message
+        );
+      }
+
+      const remindersByParent = new Map();
 
       for (const lesson of lessons) {
         if (!lesson.group) continue;
-        const tid = lesson.tenantId;   // ← тенант берётся из самого занятия
 
-        const groupName = lesson.group.name || '';
-        const timeRange = `${formatTime(lesson.startTime)}–${formatTime(lesson.endTime)}`;
+        // Фактический преподаватель: замена на конкретное занятие важнее группы.
+        const teacher = lesson.substituteTeacher || lesson.group.teacher;
 
-        const teacher = lesson.group.teacher;
         if (teacher) {
           try {
-            const teacherSubs = await PushSubscription.findAll({
-              where: { user_id: teacher.id, tenant_id: tid },
-            });
+            const lockKey = `cron:teacher-reminder:${lesson.id}`;
+            const lock = await acquireLock(lockKey, TEACHER_PUSH_LOCK_TTL_SEC);
 
-            if (teacherSubs.length > 0) {
-              const teacherPayload = {
-                title: 'Скоро занятие',
-                body:
-                  `${formatDate(lesson.date)}, ${timeRange}` +
-                  (groupName ? ` · ${groupName}` : ''),
-                icon: '/icons/turtle-192.png',
-                tag: `lesson-teacher-soon-${lesson.id}`,
-                requireInteraction: false,
-                data: {
-                  type: 'lesson_reminder_teacher',
-                  lessonId: lesson.id,
-                  url: 'app/schedule',
-                },
-              };
-              await notificationService.sendPushNotifications(teacherSubs, teacherPayload);
+            if (lock) {
+              const teacherSubs = await PushSubscription.findAll({
+                where: { user_id: teacher.id, tenant_id: tenant.id },
+              });
+
+              if (teacherSubs.length > 0) {
+                const groupName = lesson.group.name ? ` · ${lesson.group.name}` : '';
+                await notificationService.sendPushNotifications(teacherSubs, {
+                  title: 'Скоро занятие',
+                  body: `${formatDate(lesson.date)}, ${lessonTimeRange(lesson)}${groupName}`,
+                  icon: '/icons/turtle-192.png',
+                  tag: `lesson-teacher-soon-${lesson.id}`,
+                  requireInteraction: false,
+                  data: {
+                    type: 'lesson_reminder_teacher',
+                    lessonId: lesson.id,
+                    url: 'app/schedule',
+                  },
+                });
+              }
             }
-          } catch (e) {
-            console.error(`[cron] teacher push error for lesson ${lesson.id}:`, e.message);
+          } catch (error) {
+            console.error(`[cron] teacher push error for lesson ${lesson.id}:`, error.message);
           }
         }
 
@@ -97,50 +162,138 @@ module.exports = (io) => {
           const parent = child.parent;
           if (!parent) continue;
 
-          const [response, created] = await LessonResponse.findOrCreate({
-            where: { lesson_id: lesson.id, child_id: child.id },
-            defaults: {
-              tenant_id: tid,
-              parent_id: parent.id,
-              status: 'pending',
-              notified_at: new Date(),
-            },
-          });
+          try {
+            const [response, created] = await LessonResponse.findOrCreate({
+              where: { lesson_id: lesson.id, child_id: child.id },
+              defaults: {
+                tenant_id: tenant.id,
+                parent_id: parent.id,
+                status: 'pending',
+                notified_at: new Date(),
+              },
+            });
 
-          if (response.status !== 'pending') continue;
-          if (!created) continue;
+            // Уже отвечали или напоминание по этому занятию уже уходило.
+            if (!created || response.status !== 'pending') continue;
 
-          const subscriptions = await PushSubscription.findAll({
-            where: { user_id: parent.id, tenant_id: tid },
-          });
-          if (!subscriptions.length) continue;
-
-          const payload = {
-            title: 'У вашего ребёнка занятие',
-            body:
-              `${child.name}: ${formatDate(lesson.date)}, ${timeRange}. ` +
-              'Отметьте, пожалуйста, придёте вы или нет на странице «Расписание».',
-            tag: `lesson-reminder-${response.id}`,
-            requireInteraction: true,
-            data: {
-              type: 'lesson_reminder',
-              lessonId: lesson.id,
-              childId: child.id,
-              url: 'app/schedule',
-            },
-          };
-
-          await notificationService.sendPushNotifications(subscriptions, payload);
+            if (!remindersByParent.has(parent.id)) {
+              remindersByParent.set(parent.id, { parent, items: [] });
+            }
+            remindersByParent.get(parent.id).items.push({ lesson, child });
+          } catch (error) {
+            console.error(
+              `[cron] lesson response error for lesson ${lesson.id}:`,
+              error.message
+            );
+          }
         }
       }
 
-      console.log('[cron] Auto-reminders sent.');
-    } catch (error) {
-      console.error('[cron] Auto-reminder job failed:', error);
+      // Одно сводное сообщение и один push на родителя.
+      for (const [parentId, { parent, items }] of remindersByParent) {
+        const sorted = items
+          .slice()
+          .sort((a, b) =>
+            `${a.lesson.date} ${a.lesson.startTime}`.localeCompare(
+              `${b.lesson.date} ${b.lesson.startTime}`
+            )
+          );
+
+        const lines = sorted.map(({ lesson, child }) => {
+          const groupName = lesson.group?.name ? ` · ${lesson.group.name}` : '';
+          return `• ${childFullName(child)} — ${formatDate(lesson.date)}, ` +
+            `${lessonTimeRange(lesson)}${groupName}`;
+        });
+
+        // Дублируем в чат «Рассылки» родителя (по просьбе владельца).
+        const chatId = `broadcast_${parentId}`;
+
+        const metadata = {
+          type: 'lesson_intent',
+          items: sorted.map(({ lesson, child }) => ({
+            lessonId: lesson.id,
+            childId: child.id,
+            childName: childFullName(child),
+            date: lesson.date,
+            startTime: lesson.startTime,
+            endTime: lesson.endTime,
+            groupName: lesson.group?.name || null,
+          })),
+        };
+
+        try {
+          const content =
+            '🔔 У вашего ребёнка занятия\n' +
+            lines.join('\n') +
+            '\n\nОтметьте, пожалуйста, придёте вы или нет.';
+
+          const message = await Message.create({
+            tenant_id: tenant.id,
+            chat_id: chatId,
+            sender_id: tenantAdminId || parent.id,
+            content,
+            // Важно: is_system=false, иначе интерфейс спрячет кнопки «Приду/Не приду».
+            is_system: false,
+            metadata,
+          });
+
+          const messageWithSender = await Message.findOne({
+            where: { id: message.id, tenant_id: tenant.id },
+            include: [{ model: User, as: 'sender', attributes: ['id', 'name', 'role'] }],
+          });
+
+          if (io) {
+            io.to(`user:${parentId}`).emit('new_message', messageWithSender);
+            io.to(`chat_${chatId}`).emit('new_message', messageWithSender);
+          }
+        } catch (error) {
+          console.error(
+            `[cron] reminder chat message error for parent ${parentId}:`,
+            error.message
+          );
+        }
+
+        try {
+          const subscriptions = await PushSubscription.findAll({
+            where: { user_id: parentId, tenant_id: tenant.id },
+          });
+
+          if (subscriptions.length > 0) {
+            await notificationService.sendPushNotifications(subscriptions, {
+              title: 'У вашего ребёнка занятия',
+              body:
+                `${lines.join('\n')}\n\n` +
+                'Если вы ПРИДЁТЕ или НЕ ПРИДЁТЕ, отметьте это на странице ' +
+                '«Расписание» или кнопкой в чате.',
+              tag: `lesson-reminder-${parentId}`,
+              requireInteraction: true,
+              data: {
+                type: 'lesson_reminder',
+                chatId,
+                lessonIds: sorted.map(({ lesson }) => lesson.id),
+                childIds: sorted.map(({ child }) => child.id),
+                url: `app/chats/${chatId}`,
+              },
+            });
+          }
+        } catch (error) {
+          console.error(
+            `[cron] reminder push error for parent ${parentId}:`,
+            error.message
+          );
+        }
+      }
+
+      sentLessons += lessons.length;
+    }
+
+    if (sentLessons > 0) {
+      console.log(`[cron] auto-reminders processed for ${sentLessons} lesson(s).`);
     }
   }));
 
   // ---------- 2. Проверка «нет ответа через 10 минут» ----------
+  // notified_at хранится как обычная метка времени (UTC), пояс здесь не нужен.
   cron.schedule('*/2 * * * *', withLock('cron:timeout-check', 100, async () => {
     try {
       const cutoff = new Date(Date.now() - TIMEOUT_MINUTES * 60 * 1000);
@@ -182,17 +335,12 @@ module.exports = (io) => {
               throw new Error('no admin to send auto notification');
             }
 
-            const childName = r.child?.name || 'Ребёнок';
-            const timeRange =
-              `${formatTime(r.lesson?.startTime)}–` +
-              `${formatTime(r.lesson?.endTime)}`;
-
             const content =
               `🔔 Автоуведомление: родитель ${
                 r.parent?.name || ''
               } не ответил на напоминание ` +
               `в течение ${TIMEOUT_MINUTES} минут.\n` +
-              `${childName} — ${timeRange}`;
+              `${r.child?.name || 'Ребёнок'} — ${lessonTimeRange(r.lesson || {})}`;
 
             const autoChatId = `auto_${tid}`;
             const message = await Message.create({
@@ -268,5 +416,5 @@ module.exports = (io) => {
     }
   }));
 
-  console.log('[cron] Reminder jobs registered (hourly + every 2 min, with lock).');
+  console.log('[cron] Reminder jobs registered (every 5 min + timeout check).');
 };

@@ -2,19 +2,13 @@ const cron = require('node-cron');
 const { Op } = require('sequelize');
 const { Group, Lesson } = require('../models');
 const { withLock } = require('../utils/distributedLock');
+const { getTenantTimezone, getZonedNow } = require('../utils/timezone');
 
 const WEEKS_AHEAD = 4;
 const DAY_NAMES = [
   'sunday', 'monday', 'tuesday', 'wednesday',
   'thursday', 'friday', 'saturday',
 ];
-
-function formatDateStr(d) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 function normalizeTime(t) {
   const [hh, mm] = String(t).split(':');
@@ -49,8 +43,13 @@ async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
   const schedule = parseSchedule(group.schedule);
   if (!schedule) return { created: 0, skipped: 0 };
 
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // «Сегодня» и «уже началось» — по поясу центра, а не по часам сервера.
+  const timezone = await getTenantTimezone(group.tenantId);
+  const nowZoned = getZonedNow(timezone);
+  const [year, month, day] = nowZoned.date.split('-').map(Number);
+
+  // Якорь в UTC-полночь: прибавляем дни, не завися от пояса сервера.
+  const today = new Date(Date.UTC(year, month - 1, day));
   const totalDays = weeksAhead * 7;
 
   let created = 0;
@@ -58,22 +57,18 @@ async function generateLessonsForGroup(group, weeksAhead = WEEKS_AHEAD) {
 
   for (let offset = 0; offset < totalDays; offset++) {
     const date = new Date(today);
-    date.setDate(date.getDate() + offset);
-    const dayName = DAY_NAMES[date.getDay()];
+    date.setUTCDate(today.getUTCDate() + offset);
+    const dayName = DAY_NAMES[date.getUTCDay()];
     const slots = schedule[dayName];
     if (!slots) continue;
 
-    const dateStr = formatDateStr(date);
+    const dateStr = date.toISOString().slice(0, 10);
 
     for (const slot of slots) {
-      if (offset === 0) {
-        const [hh, mm] = slot.start.split(':').map(Number);
-        const startAt = new Date(date);
-        startAt.setHours(hh, mm, 0, 0);
-        if (startAt <= now) {
-          skipped += 1;
-          continue;
-        }
+      // Сегодняшние занятия, которые уже начались, не создаём.
+      if (offset === 0 && slot.start <= nowZoned.time) {
+        skipped += 1;
+        continue;
       }
 
       try {
@@ -104,11 +99,12 @@ async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
   const schedule = parseSchedule(group.schedule);
   if (!schedule) return { cancelled: 0 };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = formatDateStr(today);
-  const limit = new Date(today);
-  limit.setDate(limit.getDate() + weeksAhead * 7);
+  const timezone = await getTenantTimezone(group.tenantId);
+  const nowZoned = getZonedNow(timezone);
+  const todayStr = nowZoned.date;
+  const [year, month, day] = todayStr.split('-').map(Number);
+
+  const today = new Date(Date.UTC(year, month - 1, day));
 
   const lessons = await Lesson.findAll({
     where: {
@@ -122,11 +118,11 @@ async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
   const validSlots = new Set();
   for (let offset = 0; offset < weeksAhead * 7; offset++) {
     const date = new Date(today);
-    date.setDate(date.getDate() + offset);
-    const dayName = DAY_NAMES[date.getDay()];
+    date.setUTCDate(today.getUTCDate() + offset);
+    const dayName = DAY_NAMES[date.getUTCDay()];
     const slots = schedule[dayName];
     if (!slots) continue;
-    const dateStr = formatDateStr(date);
+    const dateStr = date.toISOString().slice(0, 10);
     for (const s of slots) validSlots.add(`${dateStr}|${s.start}`);
   }
 
@@ -142,7 +138,8 @@ async function cancelMismatchedFutureLessons(group, weeksAhead = WEEKS_AHEAD) {
 }
 
 function registerRecurringLessonsJob() {
-  cron.schedule('0 2 * * *', withLock('cron:recurring-lessons', 3600, async () => {
+  // Раз в час: у центров разные пояса, и «сегодня» у них наступает в разное время.
+  cron.schedule('5 * * * *', withLock('cron:recurring-lessons', 1800, async () => {
     console.log('[recurring] Generating lessons for all groups (all tenants)...');
     try {
       const groups = await Group.findAll({
@@ -166,7 +163,7 @@ function registerRecurringLessonsJob() {
     }
   }));
 
-  console.log('[recurring] Cron registered (daily at 02:00, with lock).');
+  console.log('[recurring] Cron registered (hourly at :05, with lock).');
 }
 
 module.exports = {

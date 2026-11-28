@@ -1,5 +1,6 @@
 const { User } = require('../models');
 const { requireTenant } = require('../utils/helpers');
+const { normalizeTimeZone } = require('../utils/timezone');
 
 /**
  * GET /api/users/me
@@ -31,6 +32,10 @@ exports.getMe = async (req, res, next) => {
       tenantId: effectiveTenant?.id || userData.tenantId,
       tenantSlug: effectiveTenant?.slug || null,
       tenantName: effectiveTenant?.name || null,
+      // Часовой пояс центра: по нему фронт считает «сегодня» и показывает время.
+      tenantTimezone: normalizeTimeZone(
+        effectiveTenant?.settings && effectiveTenant.settings.timezone
+      ),
       isPlatformAdmin: user.role === 'platform_admin',
       impersonating: !!req.impersonating,
       effectiveRole: req.effectiveRole || user.role,

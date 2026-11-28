@@ -33,7 +33,7 @@ const auth = async (req, res, next) => {
       include: [{
         model: Tenant,
         as: 'tenant',
-        attributes: ['id', 'slug', 'name', 'status', 'plan'],
+        attributes: ['id', 'slug', 'name', 'status', 'plan', 'settings'],
         required: false,
       }],
     });

@@ -10,6 +10,7 @@ const {
   Message,
   Notification,
   LessonResponse,
+  Tenant,
   sequelize,
 } = require('../models');
 const { Op } = require('sequelize');
@@ -24,6 +25,15 @@ const {
   WEEKS_AHEAD,
 } = require('../jobs/recurringLessonsJob');
 const { requireTenant } = require('../utils/helpers');
+const {
+  DEFAULT_TIMEZONE,
+  isValidTimeZone,
+  normalizeTimeZone,
+  invalidateTenantTimezone,
+  getTenantTimezone,
+  getZonedNow,
+  compareWallClock,
+} = require('../utils/timezone');
 
 const TEACHER_SHARE = 0.4;
 const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
@@ -35,14 +45,6 @@ const isValidDateString = (s) => {
   const [y, m, d] = s.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
-};
-
-const getServerLocalDateString = () => {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
 };
 
 const toDateString = (date) => {
@@ -67,11 +69,16 @@ const toNumberOrNull = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-const computeLessonStatus = (lesson, attendanceCount, now) => {
+/**
+ * Статус занятия. Сравниваем «настенное» время занятия с «сейчас» в поясе
+ * центра (nowZoned), а не с часами сервера: сервер живёт в UTC.
+ */
+const computeLessonStatus = (lesson, attendanceCount, nowZoned) => {
   if (lesson.is_cancelled) return 'cancelled';
   if (attendanceCount > 0) return 'done';
-  const endAt = new Date(`${lesson.date}T${lesson.endTime}`);
-  if (!Number.isNaN(endAt.getTime()) && endAt < now) return 'no_mark';
+  if (compareWallClock(lesson.date, lesson.endTime, nowZoned.date, nowZoned.time) < 0) {
+    return 'no_mark';
+  }
   return 'planned';
 };
 
@@ -228,8 +235,9 @@ const findTeacherLessonConflict = async ({
   const parsed = parseSchedule(schedule);
   if (!parsed) return null;
 
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Начало диапазона — «сегодня» в поясе центра.
+  const nowZoned = getZonedNow(await getTenantTimezone(tenantId));
+  const start = new Date(`${nowZoned.date}T00:00:00`);
   const end = new Date(start);
   end.setDate(start.getDate() + WEEKS_AHEAD * 7);
 
@@ -282,7 +290,10 @@ class AdminController {
     try {
       const tid = requireTenant(req);
       const { date } = req.query;
-      const todayStr = isValidDateString(date) ? date : getServerLocalDateString();
+      // «Сегодня» и статусы считаем в поясе центра, а не по часам сервера.
+      const timezone = await getTenantTimezone(tid);
+      const nowZoned = getZonedNow(timezone);
+      const todayStr = isValidDateString(date) ? date : nowZoned.date;
 
       const [
         totalUsers,
@@ -418,10 +429,9 @@ class AdminController {
         attMap = new Map(attCounts.map((r) => [r.lessonId, Number(r.cnt)]));
       }
 
-      const now = new Date();
       const todayLessonsMapped = todayLessonsRaw.map((l) => {
         const attCount = attMap.get(l.id) || 0;
-        const status = computeLessonStatus(l, attCount, now);
+        const status = computeLessonStatus(l, attCount, nowZoned);
         const group = l.group;
         const actualTeacher = l.substituteTeacher || (group ? group.teacher : null);
         const teacher = actualTeacher
@@ -496,13 +506,66 @@ class AdminController {
     }
   }
 
+  // ----- Настройки центра -----
+  // Часовой пояс влияет на автонапоминания, статусы занятий и «сегодня».
+  static async getSettings(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const tenant = await Tenant.findByPk(tid, {
+        attributes: ['id', 'name', 'settings'],
+      });
+      if (!tenant) return res.status(404).json({ message: 'Центр не найден' });
+
+      const timezone = normalizeTimeZone(
+        tenant.settings && tenant.settings.timezone
+      );
+
+      res.json({
+        timezone,
+        defaultTimezone: DEFAULT_TIMEZONE,
+        nowLocal: getZonedNow(timezone),
+        serverTime: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateSettings(req, res, next) {
+    try {
+      const tid = requireTenant(req);
+      const { timezone } = req.body || {};
+
+      if (!isValidTimeZone(timezone)) {
+        return res.status(400).json({ message: 'Неизвестный часовой пояс' });
+      }
+
+      const tenant = await Tenant.findByPk(tid);
+      if (!tenant) return res.status(404).json({ message: 'Центр не найден' });
+
+      await tenant.update({
+        settings: { ...(tenant.settings || {}), timezone },
+      });
+      invalidateTenantTimezone(tid);
+
+      res.json({
+        success: true,
+        timezone,
+        nowLocal: getZonedNow(timezone),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // ----- Уведомление по сегодняшним занятиям -----
   static async notifyTodayLessons(req, res, next) {
     const trace = [];
     try {
       const tid = requireTenant(req);
       const { date, title, body } = req.body || {};
-      const todayStr = isValidDateString(date) ? date : getServerLocalDateString();
+      const timezone = await getTenantTimezone(tid);
+      const todayStr = isValidDateString(date) ? date : getZonedNow(timezone).date;
       trace.push(`date=${todayStr}`);
 
       const cooldownKey = `${tid}:${todayStr}`;
@@ -1302,11 +1365,13 @@ class AdminController {
       });
       if (!group) return res.status(404).json({ message: 'Group not found' });
 
-      // Клиент передаёт свою локальную дату, чтобы неделя считалась по его часовому поясу
+      // Клиент передаёт свою локальную дату, чтобы неделя считалась по его часовому поясу.
+      // Если не передал — берём «сегодня» в поясе центра.
       const { date } = req.query;
-      const baseDate = isValidDateString(date)
-        ? new Date(`${date}T00:00:00`)
-        : new Date();
+      const fallbackDate = getZonedNow(await getTenantTimezone(tid)).date;
+      const baseDate = new Date(
+        `${isValidDateString(date) ? date : fallbackDate}T00:00:00`
+      );
       const { start, end } = getCurrentWeekRange(baseDate);
       const lessons = await Lesson.findAll({
         where: {
@@ -1344,7 +1409,8 @@ class AdminController {
         attendanceMap = new Map(rows.map((row) => [row.lessonId, Number(row.cnt)]));
       }
 
-      const now = new Date();
+      const timezone = await getTenantTimezone(tid);
+      const nowZoned = getZonedNow(timezone);
       const weekLessons = lessons.map((lesson) => {
         const attendanceCount = attendanceMap.get(lesson.id) || 0;
         return {
@@ -1354,7 +1420,7 @@ class AdminController {
           endTime: lesson.endTime,
           topic: lesson.topic,
           attendanceCount,
-          status: computeLessonStatus(lesson, attendanceCount, now),
+          status: computeLessonStatus(lesson, attendanceCount, nowZoned),
           substituteTeacherId: lesson.substituteTeacherId,
           substituteTeacherName: lesson.substituteTeacher
             ? lesson.substituteTeacher.name

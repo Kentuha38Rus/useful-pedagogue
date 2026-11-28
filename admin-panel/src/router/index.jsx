@@ -10,6 +10,7 @@ import CoursesPage from '../pages/Courses/CoursesPage';
 import PaymentsPage from '../pages/Payments/PaymentsPage';
 import SalaryPage from '../pages/Salary/SalaryPage';
 import ChatsPage from '../pages/Chats/ChatsPage';
+import SettingsPage from '../pages/Settings/SettingsPage';
 import AdminLayout from '../components/layout/AdminLayout';
 
 const PrivateRoute = ({ children }) => {
@@ -118,6 +119,17 @@ const AppRouter = () => {
           <PrivateRoute>
             <AdminLayout>
               <ChatsPage />
+            </AdminLayout>
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/settings"
+        element={
+          <PrivateRoute>
+            <AdminLayout>
+              <SettingsPage />
             </AdminLayout>
           </PrivateRoute>
         }

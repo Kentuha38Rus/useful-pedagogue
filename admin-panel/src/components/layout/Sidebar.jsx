@@ -23,6 +23,7 @@ const Sidebar = ({ isOpen = false, onNavigate }) => {
     { to: '/payments', label: 'Платежи' },
     { to: '/salary', label: '💰 Зарплата' },
     { to: '/chats', label: '💬 Чаты', badge: unreadTotal },
+    { to: '/settings', label: '⚙️ Настройки' },
   ];
 
   return (

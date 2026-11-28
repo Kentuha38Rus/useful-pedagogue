@@ -62,7 +62,8 @@ const DashboardPage = () => {
   const timersRef = useRef({});
 
   useEffect(() => {
-    dispatch(fetchStats({ date: getLocalDateString() }));
+    // Дату не передаём: сервер берёт «сегодня» в часовом поясе центра.
+    dispatch(fetchStats());
   }, [dispatch]);
 
   useEffect(() => {
@@ -119,7 +120,7 @@ const DashboardPage = () => {
   const handleChildSaved = () => {
     if (selectedParentId) dispatch(fetchUserDetails(selectedParentId));
     if (selectedChildId) dispatch(fetchChildDetails(selectedChildId));
-    dispatch(fetchStats({ date: getLocalDateString() }));
+    dispatch(fetchStats());
   };
 
   const setLessonState = (lessonId, patch) => {
@@ -536,9 +537,7 @@ const DashboardPage = () => {
                           if (selectedTeacherId) {
                             dispatch(fetchUserDetails(selectedTeacherId));
                           }
-                          dispatch(
-                            fetchStats({ date: getLocalDateString() })
-                          );
+                          dispatch(fetchStats());
                         }}
                       />
                     )

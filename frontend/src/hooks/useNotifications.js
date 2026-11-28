@@ -106,7 +106,7 @@ const useNotifications = () => {
     const handleResponseTimeout = (payload) => {
       const notif = {
         title: 'Нет ответа',
-        body: `${payload.childName || 'Ребёнок'}: родитель не ответил за 20 минут`,
+        body: `${payload.childName || 'Ребёнок'}: родитель не ответил за 10 минут`,
         type: 'lesson_response_timeout',
         raw: payload,
       };
